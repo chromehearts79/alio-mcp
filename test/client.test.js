@@ -19,6 +19,7 @@ import {
   mapLimit,
 } from "../src/alio-client.js";
 import { normalizeSnapshot, diffSnapshots } from "../src/diff.js";
+import { runWithSignal } from "../src/context.js";
 
 const fx = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const orgsJson = await fs.readFile(path.join(fx, "orgs.json"), "utf8");
@@ -310,4 +311,28 @@ test("응답 본문을 읽다 끊겨도 재시도한다", async () => {
   });
   assert.equal((await listOrgs()).length, 355);
   assert.equal(n, 2);
+});
+
+test("취소된 요청: mapLimit 은 새 작업을 시작하지 않고 CANCELLED 로 끝낸다", async () => {
+  let ran = 0;
+  await assert.rejects(
+    runWithSignal(AbortSignal.abort(), () => mapLimit([1, 2, 3], 2, async () => ran++)),
+    (e) => e instanceof AlioError && e.kind === "CANCELLED"
+  );
+  assert.equal(ran, 0);
+});
+
+test("취소된 요청: 네트워크를 부르지 않고 CANCELLED 로 끝낸다", async () => {
+  await assert.rejects(runWithSignal(AbortSignal.abort(), () => listOrgs()), (e) => e.kind === "CANCELLED");
+  assert.equal(calls.length, 0);
+});
+
+test("응답을 기다리는 중 취소되면 연결 실패(NETWORK)가 아니라 CANCELLED", async () => {
+  settings.retries = 0; // 마지막 시도에서 취소된 경우
+  const ac = new AbortController();
+  useFetch((url, init) => new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(init.signal.reason))));
+  const p = runWithSignal(ac.signal, () => listOrgs());
+  setTimeout(() => ac.abort(), 20);
+  await assert.rejects(p, (e) => e.kind === "CANCELLED");
+  assert.equal(calls.length, 1);
 });

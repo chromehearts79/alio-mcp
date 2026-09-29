@@ -8,3 +8,4 @@ snapshots/
 *.log
 .DS_Store
 dist/
+bench/.cache/

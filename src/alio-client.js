@@ -1,8 +1,9 @@
 // ALIO (공공기관 경영정보 공개시스템) 내부규정 클라이언트
 // 브라우저 리버스 엔지니어링으로 확정한 비공식 내부 JSON API 사용.
 // reportFormRootNo=21110 == "내부규정" 보고서
-import fs from "node:fs/promises";
 import path from "node:path";
+import { currentSignal, isCancelled } from "./context.js";
+import { writeFileSafe } from "./fsutil.js";
 
 const BASE = "https://www.alio.go.kr";
 const REPORT_FORM = "21110"; // 내부규정
@@ -39,12 +40,13 @@ export const settings = {
 };
 
 // 동시에 limit 개까지 실행. 결과는 입력 순서대로. deadline 이 지나면 새 작업을 시작하지 않고 skipped 로 남긴다.
+// 요청이 취소되면 새 작업을 시작하지 않고 CANCELLED 로 끝낸다.
 export async function mapLimit(items, limit, fn, { deadline } = {}) {
   const results = new Array(items.length);
   const skipped = [];
   let next = 0;
   const worker = async () => {
-    while (next < items.length) {
+    while (next < items.length && !isCancelled()) {
       const i = next++;
       if (deadline && Date.now() >= deadline) {
         skipped.push(i);
@@ -54,10 +56,12 @@ export async function mapLimit(items, limit, fn, { deadline } = {}) {
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
+  throwIfCancelled();
   return { results, skipped: skipped.sort((a, b) => a - b) };
 }
 
 // kind: HTTP(재시도 불가 상태코드) | NETWORK(재시도 후에도 실패) | SCHEMA(응답 구조가 예상과 다름 → 사이트 개편 의심)
+//       | NO_FILE(첨부 없음) | PARSE(본문 추출 실패) | CANCELLED(클라이언트가 요청 취소)
 export class AlioError extends Error {
   constructor(kind, message, { status } = {}) {
     super(message);
@@ -65,6 +69,10 @@ export class AlioError extends Error {
     this.kind = kind;
     this.status = status;
   }
+}
+
+export function throwIfCancelled() {
+  if (isCancelled()) throw new AlioError("CANCELLED", "요청이 취소되어 작업을 멈췄습니다");
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -75,11 +83,14 @@ async function request(url, init = {}, as = "text") {
   let last;
   for (let attempt = 0; attempt <= settings.retries; attempt++) {
     if (attempt > 0) await sleep(settings.retryBaseMs * 2 ** (attempt - 1));
+    throwIfCancelled();
+    const cancel = currentSignal();
+    const timeout = AbortSignal.timeout(settings.requestTimeoutMs);
     try {
       const res = await fetch(BASE + url, {
         ...init,
         headers: { ...COMMON_HEADERS, ...init.headers },
-        signal: AbortSignal.timeout(settings.requestTimeoutMs),
+        signal: cancel ? AbortSignal.any([timeout, cancel]) : timeout,
       });
       if (!res.ok) {
         last = new AlioError(isRetryable(res.status) ? "NETWORK" : "HTTP", `${url} → HTTP ${res.status}`, {
@@ -91,6 +102,7 @@ async function request(url, init = {}, as = "text") {
       const body = as === "buffer" ? Buffer.from(await res.arrayBuffer()) : await res.text();
       return { res, body };
     } catch (e) {
+      throwIfCancelled();
       const why = e.name === "TimeoutError" ? `${settings.requestTimeoutMs / 1000}초 동안 응답 없음` : e.message;
       last = new AlioError("NETWORK", `${url} 연결 실패: ${why}`);
     }
@@ -330,8 +342,7 @@ export async function fetchRuleFile(fileNo) {
 
 export async function downloadRuleFile(fileNo, destPath) {
   const { buf, contentType: ct } = await fetchRuleFile(fileNo);
-  await fs.mkdir(path.dirname(destPath), { recursive: true });
-  await fs.writeFile(destPath, buf);
+  await writeFileSafe(destPath, buf, { overwrite: true });
   return { path: destPath, bytes: buf.length, contentType: ct };
 }
 

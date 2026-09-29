@@ -33,15 +33,19 @@
   "scripts": {
     "mcp": "node src/server.js",
     "sweep": "node src/sweep.js",
-    "test": "node --test test/client.test.js test/rule-text.test.js test/guideline.test.js test/hwpx.test.js",
+    "test": "node --test test/client.test.js test/rule-text.test.js test/guideline.test.js test/hwpx.test.js test/server.test.js",
     "test:live": "node --test test/live.test.js",
     "fixtures": "node test/capture-fixtures.mjs",
-    "bundle": "node scripts/build-mcpb.mjs"
+    "bundle": "node scripts/build-mcpb.mjs",
+    "bench": "node bench/run.mjs",
+    "check": "node scripts/check-release.mjs",
+    "smoke": "node scripts/smoke-bundle.mjs",
+    "version": "node scripts/sync-version.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "jszip": "3.10.1",
-    "kordoc": "4.15.7",
+    "kordoc": "4.16.0",
     "pdfjs-dist": "4.10.38",
     "zod": "^4.4.3"
   },

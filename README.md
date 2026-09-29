@@ -93,6 +93,9 @@ claude mcp add alio -- node <경로>/alio-mcp/src/server.js
 - 검색 결과는 모든 페이지를 읽으며, 조회에 실패한 기관은 결과에서 조용히 빠지지 않고 "조회 실패 N곳"으로 따로 표시된다.
 - **응답 시간:** MCP 클라이언트는 기본 60초 안에 응답이 없으면 요청을 끊는다. 기관 355곳을 순차 조회하면 약 82초가 걸리므로 동시에 4곳씩 조회한다(전 기관 약 20초). 도구마다 40초 시간 예산을 두고, 넘기면 처리한 만큼 돌려주면서 못 한 기관·규정을 "⏱️ 시간 제한으로 처리하지 못함"으로 명시한다. 같은 요청을 다시 실행하면 캐시로 이어서 처리한다.
 - **캐시:** 기관 목록 6시간·제목 검색 10분(메모리), 본문 추출 결과(파일번호별)·첨부 목록(최종 수정일·시행일이 같으면 재사용, 7일마다 재확인)은 디스크. ALIO 규정 상세 페이지가 건당 약 1.5초로 가장 느려서, 한 번 읽은 규정은 다시 열지 않는다(재검색 27초 → 1초).
+- **취소·오류:** 클라이언트가 요청을 취소하면 진행 중인 조회를 멈춘다. 실패하면 종류(`NETWORK`·`SCHEMA`·`PARSE` 등)와 다음 조치를 함께 알려 준다. 응답은 10만 자에서 자른다.
+- **파일 저장:** 같은 이름이 있으면 번호를 붙이고, 저장 자리에 링크(바로가기)가 있으면 따라가지 않는다. 내려받은 원문은 임시 파일에 쓴 뒤 바꿔 넣어 중간에 끊겨도 기존 파일이 깨지지 않는다.
+- stdout 은 MCP 통신 전용이라, 의존 라이브러리가 콘솔에 찍는 글은 stderr 로 돌린다.
 - 같은 기관에 같은 이름으로 여러 건 올라온 규정(옛 버전을 따로 등록한 경우)은 시행일이 가장 늦은 것만 최신으로 보고 나머지는 `⚠️옛 버전 추정`으로 표시한다. 본문 검색은 기본으로 최신본만 읽는다(`includeOld`로 포함).
 
 ### 본문 검색 (`alio_read_rule`, `alio_search_text`)
@@ -120,11 +123,16 @@ git clone https://github.com/chromehearts79/alio-mcp.git && cd alio-mcp && npm i
 npm test                     # 오프라인: test/fixtures 의 실제 응답으로 검증 (네트워크 불필요)
 npm run test:live            # 실서버 점검: ALIO 사이트 구조가 바뀌었는지 확인
 node test/e2e-smoke.mjs      # 빈 홈 폴더에서 서버를 띄워 모든 도구를 실제로 호출
+npm run bench                # 실제 내규 106건 조문 분할 회귀 벤치(ALIO 응답 구조 변화도 감지)
 npm run fixtures             # 사이트 구조가 바뀐 뒤 테스트용 실제 응답을 다시 저장
 npm run bundle               # Claude 데스크톱 확장 dist/alio-mcp-<버전>.mcpb 생성
+npm run check -- --bundle    # 출시 전 검사(버전·CHANGELOG·패키지 파일·번들 구성)
+npm run smoke                # 번들을 풀어 빈 홈 폴더에서 실행(--live 로 ALIO 실호출까지)
 ```
 
-`npm run bundle` 은 실행에 필요한 파일과 의존성만 모아(선택 의존성 제외, 약 13MB) 묶는다. 만든 번들은 `node test/e2e-smoke.mjs <풀어 놓은 번들>/src/server.js` 로 확인한다.
+`npm run bundle` 은 실행에 필요한 파일과 의존성만 모아(선택 의존성 제외, 약 13MB) 묶는다.
+
+**출시:** 바뀐 점을 `CHANGELOG.md` 의 `[Unreleased]` 에 적고 `npm version patch`(또는 `minor`) → `git push --follow-tags`. 태그가 올라가면 GitHub Actions 가 테스트·검사·번들 점검을 거쳐 릴리스에 `.mcpb` 를 게시한다. CI 는 Windows·macOS·Linux × Node 20·22 에서 돌고, 매주 월요일 ALIO 실서버 점검과 벤치를 돌린다. 개발 규칙은 [CLAUDE.md](CLAUDE.md).
 
 오류 종류: `HTTP`(재시도 불가 상태코드) / `NETWORK`(429·5xx·연결 실패를 재시도한 뒤에도 실패) / `SCHEMA`(응답 구조가 예상과 다름 — 사이트 개편·차단 의심) / `NO_FILE`(첨부 없음) / `PARSE`(본문 추출 실패·스캔 PDF·ZIP 안 현행본 특정 불가).
 

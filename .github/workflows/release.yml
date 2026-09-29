@@ -1,0 +1,50 @@
+name: Release
+
+# `npm version patch|minor` 후 `git push --follow-tags` 로 vX.Y.Z 태그가 올라오면,
+# 검사를 모두 통과한 경우에만 확장 번들(.mcpb)을 만들어 GitHub 릴리스로 게시한다.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=optional --ignore-scripts
+
+      - name: 테스트·출시 전 검사(태그 = 버전, CHANGELOG 항목)
+        run: |
+          npm test
+          npm run check -- --tag "$GITHUB_REF_NAME"
+
+      - name: 확장 번들 만들기·검사·실행 점검
+        run: |
+          npm run bundle
+          npm run check -- --bundle
+          npm run smoke
+
+      - name: 릴리스 게시
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          file="dist/alio-mcp-${version}.mcpb"
+          sha=$(sha256sum "$file" | cut -d' ' -f1)
+          # CHANGELOG 의 이 버전 항목을 릴리스 설명으로
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > notes.md
+          cat >> notes.md <<EOF
+
+          ## 설치 (Claude 데스크톱, Windows·macOS)
+          아래 \`alio-mcp-${version}.mcpb\` 를 받아 더블클릭하거나 Claude 앱 **설정 → 확장 프로그램**에 끌어다 놓고 **설치**를 누릅니다. Node.js 설치나 API 키는 필요 없습니다.
+
+          SHA-256: \`${sha}\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" "$file" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag

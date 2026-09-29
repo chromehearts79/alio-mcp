@@ -108,6 +108,22 @@ test("실사례: PDF 앞머리 목차 줄(···)을 부칙·조문으로 오인
   assert.equal(u.filter((x) => x.kind === "부칙").length, 1);
 });
 
+test("실사례: 탭+쪽번호 목차(kordoc 4.16 PDF 추출)의 '제 60 조삭제 ⇥ 15'를 조문으로 오인하지 않는다", () => {
+  // 목차의 삭제 조문이 첫 조문으로 잡히면, 번호가 커지는 것만 조문으로 보는 규칙 때문에 본문 제1조~가 모두 인용 처리된다
+  const md =
+    "목\t차\n\n제1조목적 \t 5 제2조 적용범위 \t 5 제2장복무\n\n제 13 조 유급휴일 \t 6 제4장 휴가 및 휴직\n\n제 60 조삭제 \t 15\n\n부 칙 \t 15\n\n" +
+    "제1조 (목적) 이 규정은 복무를 정한다.\n\n제2조 (적용범위) 전 직원\n\n제60조 삭제\n\n부 칙(제정 ’12. 12. 31)\n\n시행한다.";
+  const u = splitArticles(md);
+  assert.deepEqual(u.filter((x) => x.kind === "조문").map((x) => x.no), ["제1조", "제2조", "제60조"]);
+  assert.equal(u.filter((x) => x.kind === "부칙").length, 1);
+});
+
+test("조문 번호 뒤 탭 '제22조\\t(목적)'이나 본문 속 탭은 목차로 보지 않는다", () => {
+  const u = splitArticles("제22조\t(목적) 이 규정은 …\n\n(예 : 육아휴직\t) 중인 자").filter((x) => x.kind === "조문");
+  assert.deepEqual(u.map((x) => x.no), ["제22조"]);
+  assert.match(u[0].text, /육아휴직/);
+});
+
 test("실사례: 줄바꿈으로 줄 머리에 온 인용 '제10조(징계)에 따라'는 앞 조문 내용으로 둔다", () => {
   const md = "제39조(포상) ① 다음의 경우\n\n제10조(징계)에 따라 감경할 수 있다.\n\n제40조(보칙) 끝";
   const u = splitArticles(md).filter((x) => x.kind === "조문");

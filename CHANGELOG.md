@@ -1,0 +1,35 @@
+# Changelog
+
+이 프로젝트의 바뀐 점을 적는다. 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/), 버전은 [유의적 버전](https://semver.org/lang/ko/)을 따른다.
+
+## [Unreleased]
+
+### Added
+- 요청 취소: 클라이언트가 취소하면 355곳 검색 같은 긴 조회도 바로 멈춘다.
+- 오류 안내: 실패 종류(`NETWORK`·`SCHEMA`·`PARSE` 등)와 다음 조치를 함께 알려 준다. 파일 저장 오류도 원인과 조치를 한국어로 알려 준다.
+- 내규 조문 분할 회귀 벤치(`npm run bench`): 실제 공공기관 내규 106건(49개 기관, HWP·PDF·HWPX·ZIP)의 조문 분할이 기준과 같은지 확인하고, ALIO 응답 구조가 바뀌면 알린다.
+- 출시 전 검사(`scripts/check-release.mjs`), CI(macOS·Windows·Linux × Node 20·22), 주간 실서버 점검, 태그를 올리면 확장 번들 릴리스 자동 게시.
+
+### Changed
+- kordoc 4.15.7 → 4.16.0. PDF 본문 추출이 좋아져 조문 번호 누락 없이 분할되는 규정이 102 → 103건(벤치 106건 기준).
+- 캐시 버전 9: 이전에 저장한 본문 추출 결과를 새 추출기로 다시 만든다.
+- 응답은 모든 도구에서 10만 자로 자른다. 버전은 package.json 한 곳에서 가져온다.
+
+### Fixed
+- kordoc 4.16.0 이 PDF 목차를 "제3조 근무시간 ⇥ 5 제4조 …"(탭+쪽번호) 형식으로 내면서, 목차의 "제 60 조삭제"를 첫 조문으로 잡아 본문 조문 전체를 인용으로 처리하던 것(국가수리과학연구소 복무규정: 조문 79 → 17개). 탭+쪽번호 목차도 목차로 본다.
+- 한글 문서 저장 자리에 링크(바로가기)가 있으면 따라가 다른 파일을 덮어쓰거나 밖에 파일을 만들 수 있던 것. 원문 내려받기는 임시 파일에 쓴 뒤 바꿔 넣는다.
+- 의존 라이브러리가 console 로 찍는 글이 stdout(MCP 통신)에 섞일 수 있던 것. stderr 로 돌린다.
+
+## [0.5.0] - 2026-09-29
+
+첫 공개판.
+
+### Added
+- 공공기관 355곳 내부규정(ALIO) 제목·본문(조문) 검색, 규정 전문을 조문 단위로 읽기(HWP·HWPX·PDF·DOCX·ZIP 첨부).
+- 「공공기관의 혁신에 관한 지침」 최신성 확인: 모든 결과에 기준 지침 개정일 표시, 새 개정 경고, 조문별 변경점 비교(`alio_guideline`).
+- 내규 검토 기본 절차(서버 안내문·`review_rule` 프롬프트).
+- 한글(HWPX) 보고서 저장(`alio_write_hwpx`): 함초롬바탕(※·별첨 함초롬돋움), 본문 15pt·표 12pt, 한글 어절·영어 단어 줄 나눔, 양쪽 정렬, 신구조문 대비표(열 너비 37:37:26, 바뀐 부분 밑줄).
+- Claude 데스크톱 확장(.mcpb) 배포. 저장·캐시 위치는 OS 표준 폴더(`ALIO_OUTPUT_DIR`·`ALIO_CACHE_DIR`로 변경).
+
+[Unreleased]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/chromehearts79/alio-mcp/releases/tag/v0.5.0

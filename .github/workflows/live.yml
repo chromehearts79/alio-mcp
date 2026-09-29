@@ -1,0 +1,32 @@
+name: ALIO 실서버 점검
+
+# ALIO 는 공개 API 가 아니라 사이트가 바뀌면 조용히 깨질 수 있다. 매주 실제로 호출해 확인한다.
+# 실패하면 GitHub 가 레포 소유자에게 알림을 보낸다.
+on:
+  schedule:
+    - cron: "0 0 * * 1" # 매주 월요일 09:00 (한국)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=optional --ignore-scripts
+
+      - name: 사이트 구조 점검(기관 목록·검색·상세·첨부)
+        run: npm run test:live
+
+      - name: 모든 도구 실호출
+        run: node test/e2e-smoke.mjs
+
+      - name: 내규 조문 분할 회귀 벤치(실제 내규 106건)
+        run: npm run bench

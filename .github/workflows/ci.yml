@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 공공기관 업무용 PC(Windows)와 Claude 데스크톱(macOS·Windows)을 실제로 돌려 본다
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # 배포본과 같은 조건: OCR·이미지용 선택 의존성 없이, 설치 스크립트 실행 없이
+      - run: npm ci --omit=optional --ignore-scripts
+
+      - name: 오프라인 테스트
+        run: npm test
+
+      - name: 출시 전 검사(버전·CHANGELOG·패키지 파일·manifest)
+        run: npm run check
+
+      - name: 확장 번들 만들기·구성 검사
+        run: |
+          npm run bundle
+          npm run check -- --bundle
+
+      - name: 번들을 풀어 빈 홈 폴더에서 실행(오프라인)
+        run: npm run smoke
