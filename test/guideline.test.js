@@ -1,4 +1,4 @@
-// 「공공기관의 혁신에 관한 지침」 최신성 확인·버전 비교 (실제 ALIO 목록 응답으로 오프라인 검증)
+// 정부 지침 최신성 확인·버전 비교 (실제 ALIO 목록 응답으로 오프라인 검증)
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -19,10 +19,19 @@ import {
   guidelineHeader,
   clearGuidelineMemo,
   guidelineSettings,
+  seriesKey,
+  groupSeries,
+  findSeries,
+  listGuidelineSeries,
+  watchedGuidelines,
+  readSeen,
 } from "../src/guideline.js";
 
 const fx = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const listPages = JSON.parse(await fs.readFile(path.join(fx, "guideline_list.json"), "utf8"));
+// 게시판 전체(80건, 8쪽) — 혁신 지침 13건 포함
+const boardPages = JSON.parse(await fs.readFile(path.join(fx, "guideline_board.json"), "utf8"));
+const boardRows = Object.values(boardPages).flatMap((p) => p.data.result);
 
 const V_OLD = `공공기관의 혁신에 관한 지침
 
@@ -121,7 +130,7 @@ beforeEach(async () => {
     const u = new URL(String(url));
     if (u.pathname === "/etc/findEtcLawList.json") {
       if (listFail) return new Response("down", { status: 503 });
-      return json(listPages[u.searchParams.get("pageNo")]);
+      return json(boardPages[u.searchParams.get("pageNo")]);
     }
     if (u.pathname === "/etc/findEtcLawDtl.json") {
       detailCalls++;
@@ -184,4 +193,56 @@ test("지침 본문: 첨부를 받아 조문으로 나누고, 한 번 받은 개
   const b = await loadGuidelineVersion(versionAt(vs, "2023.02.15"), { cacheDir });
   const d = diffUnits(b.units, a.units);
   assert.deepEqual(d.added.map((u) => u.no), ["제11조의2", "부칙(2026.7.31)"]);
+});
+
+// ---- 분야별 지침: 게시판 전체를 계열로 묶기 ----
+test("계열 묶기: 표기가 달라도 같은 지침, 해마다 새 이름으로 올라오는 지침은 하나로", () => {
+  assert.equal(seriesKey("공기업·준정부기관의 경영에 관한 지침(2023.4.27. 개정)"), seriesKey("공기업 준정부기관의 경영에 관한 지침"));
+  assert.equal(seriesKey("2026년도 공기업·준정부기관 예산운용지침"), seriesKey("2025년도 공기업 준정부기관 예산운용지침 개정안"));
+  assert.notEqual(seriesKey("지방공공기관의 혁신에 관한 지침"), seriesKey("공공기관의 혁신에 관한 지침"));
+  const series = groupSeries(boardRows);
+  const innov = findSeries(series, "혁신에 관한 지침");
+  assert.equal(innov.length, 1);
+  assert.equal(innov[0].versions.length, 13);
+  assert.equal(innov[0].versions[0].revDate, "2026-07-31");
+  const mgmt = findSeries(series, "경영에 관한 지침")[0];
+  assert.ok(mgmt.versions.length >= 15, `경영 지침 ${mgmt.versions.length}건`);
+  const budget = findSeries(series, "예산운용지침")[0];
+  assert.match(budget.versions[0].title, /2026년도/);
+  assert.equal(findSeries(series, "임원 보수").length, 1);
+  assert.ok(series.length < 37, "표기 차이·연도별 지침이 묶이지 않음");
+});
+
+test("계열 목록: 게시판 전체를 받아 최근 개정 순으로", async () => {
+  const series = await listGuidelineSeries();
+  assert.ok(series.length >= 20);
+  assert.ok(series.every((s, i) => i === 0 || series[i - 1].versions[0].revDate >= s.versions[0].revDate));
+  const vs = await listGuidelineVersions({ title: "임원 보수지침" });
+  assert.match(vs[0].title, /임원 보수지침/);
+});
+
+test("감시 지침: 설정으로 여러 개, 각각 최신성 표시와 확인 기록", async () => {
+  const keep = process.env.ALIO_WATCH_GUIDELINES;
+  try {
+    process.env.ALIO_WATCH_GUIDELINES = "${user_config.watch_guidelines}";
+    assert.deepEqual(watchedGuidelines(), ["공공기관의 혁신에 관한 지침"], "치환되지 않은 설정은 기본값");
+    process.env.ALIO_WATCH_GUIDELINES = "임원 보수지침, 안전관리에 관한 지침";
+    assert.deepEqual(watchedGuidelines(), ["임원 보수지침", "안전관리에 관한 지침"]);
+    const h = await guidelineHeader({ cacheDir });
+    assert.match(h, /📌 기준 지침: 공기업·준정부기관 임원 보수지침/);
+    assert.match(h, /📌 기준 지침: 공공기관의 안전관리에 관한 지침/);
+    const pay = await listGuidelineVersions({ title: "임원 보수지침" });
+    await markSeen(pay[0], cacheDir);
+    assert.equal((await readSeen(cacheDir, pay[0].series)).boardNo, pay[0].boardNo);
+    assert.equal(await readSeen(cacheDir), null, "다른 지침(혁신) 확인 기록과 섞임");
+  } finally {
+    if (keep === undefined) delete process.env.ALIO_WATCH_GUIDELINES;
+    else process.env.ALIO_WATCH_GUIDELINES = keep;
+  }
+});
+
+test("확인 기록: 예전 형식(혁신 지침 하나)도 읽는다", async () => {
+  await fs.writeFile(path.join(cacheDir, "guideline_state.json"), JSON.stringify({ boardNo: "3562152", revDate: "2026-07-31", title: "x", seenAt: "2026-09-29" }));
+  assert.equal((await readSeen(cacheDir)).boardNo, "3562152");
+  assert.doesNotMatch(await guidelineHeader({ cacheDir, titles: ["공공기관의 혁신에 관한 지침"] }), /⚠️/);
 });

@@ -40,7 +40,16 @@ const qs = new URLSearchParams({
 const html = await fetch(`${BASE}/item/itemBoard21110.do?${qs}`, { headers: H }).then((r) => r.text());
 await fs.writeFile(path.join(dir, "detail_C0105_21892.html"), html);
 
+// '공공기관 법령/지침' 게시판 전체(분야별 기준 지침)
+const board = {};
+for (let p = 1; ; p++) {
+  const q = new URLSearchParams({ type: "title", word: "", pageNo: String(p) });
+  board[p] = await fetch(`${BASE}/etc/findEtcLawList.json?${q}`, { headers: H }).then((r) => r.json());
+  if (p >= board[1].data.page.totalPage) break;
+}
+await fs.writeFile(path.join(dir, "guideline_board.json"), JSON.stringify(board));
+
 console.log(
-  `orgs=${orgs.data.organList.length} pages=${Object.keys(pages).length} ` +
+  `orgs=${orgs.data.organList.length} pages=${Object.keys(pages).length} board=${Object.keys(board).length}쪽 ` +
     `totalCount=${pages[1].data.page.totalCount} detail=${html.length}B`
 );

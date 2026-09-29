@@ -110,6 +110,20 @@ test("ALIO 연결 실패는 종류와 조치를 알려 준다", async () => {
   assert.match(bodyOf(r), /\[NETWORK\].*\n→ ALIO\(www\.alio\.go\.kr\)에 연결하지 못했습니다/);
 });
 
+test("본문 검색 범위: 없는 분야는 쓸 수 있는 분야를 알려 주고, 빈 범위는 추측하지 말라고 알린다", async () => {
+  route = async (u) => {
+    if (u.endsWith("/item/itemOrganListSusi.json")) return json(orgsJson);
+    if (u.includes("/etc/")) return offline();
+    return json({ data: { result: [], page: { totalPage: 0, totalCount: 0 } } });
+  };
+  const bad = await call("alio_search_text", { field: "없는분야", query: "x", orgName: "인천국제공항공사" });
+  assert.equal(bad.isError, true);
+  assert.match(bodyOf(bad), /쓸 수 있는 분야: .*복무·근무/);
+  const empty = bodyOf(await call("alio_search_text", { field: "복무", query: "유연근무", orgName: "인천국제공항공사" }));
+  assert.match(empty, /전체 규정 목록: 1\/1곳/);
+  assert.match(empty, /해당하는 규정이 없어 본문을 읽지 않았습니다.*추측하지 마세요/);
+});
+
 test("요청을 취소하면 서버도 조회를 멈춘다", async () => {
   // 기관 목록은 바로, 기관별 검색은 건당 100ms 걸리는 사이트
   route = async (u) => {

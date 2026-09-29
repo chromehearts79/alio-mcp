@@ -17,13 +17,17 @@ import {
   readSeen,
   markSeen,
   guidelineHeader,
+  listGuidelineSeries,
+  findSeries,
+  watchedGuidelines,
 } from "./guideline.js";
 import { markdownToStyledHwpx, HOUSE_STYLE } from "./hwpx.js";
 import { OUTPUT_DIR, DOWNLOAD_DIR } from "./paths.js";
 import { runWithSignal, isCancelled } from "./context.js";
 import { writeNewFile } from "./fsutil.js";
 import { findRelated } from "./related.js";
-import { coverageNote, refreshInBackground } from "./catalog.js";
+import { coverageNote, refreshInBackground, loadCatalog } from "./catalog.js";
+import { GROUPS, classifyTitle, normTitle } from "./thesaurus.js";
 
 // 버전은 package.json 하나에서 가져온다(manifest·릴리스 태그도 이 값과 맞춰 검사)
 export const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -133,9 +137,9 @@ export const capText = (t) =>
   t.length > MAX_RESPONSE ? t.slice(0, MAX_RESPONSE) + `\n\n…(응답이 ${MAX_RESPONSE.toLocaleString()}자를 넘어 잘렸습니다 — 조건을 좁혀 다시 조회하세요)` : t;
 
 const REVIEW_FRAME = `[내규 검토 기본 프레임] 내규 개정·비교 검토 요청을 받으면 이 순서를 따른다.
-0. 기준 최신성: 모든 alio 도구 결과 맨 위의 '📌 기준 지침' 줄을 확인한다. '⚠️'가 붙어 있으면 다른 작업보다 먼저 alio_guideline 을 호출해 새 개정에서 달라진 점을 사용자에게 설명한다. 검토 대상 규정의 시행일을 alio_guideline 의 since 로 넘겨, 그 규정이 만들어진 뒤 지침에서 달라진 점도 확인한다. 법령정보 MCP(korean-law)가 있으면 인용 법령(공운법 제15조 등)의 현행·시행예정 개정도 확인한다.
+0. 기준 최신성: 모든 alio 도구 결과 맨 위의 '📌 기준 지침' 줄(감시 지침)을 확인한다. '⚠️'가 붙어 있으면 다른 작업보다 먼저 alio_guideline 을 호출해 새 개정에서 달라진 점을 사용자에게 설명한다. 검토 대상 규정의 분야에 맞는 지침을 정한다 — alio_find_related 결과의 '관련 정부 지침'을 쓰거나 alio_guideline(list=true)로 게시판 지침을 보고 고른다(예: 임원 보수 → 임원 보수지침, 복리후생·보수 → 예산운용지침, 인사·조직 → 경영에 관한 지침, 안전 → 안전관리에 관한 지침). 그 지침을 guideline 으로, 검토 대상 규정의 시행일을 since 로 넘겨 규정이 만들어진 뒤 지침에서 달라진 점도 확인한다. 맞는 지침이 게시판에 없으면 그렇다고 밝힌다. 법령정보 MCP(korean-law)가 있으면 인용 법령(공운법 제15조 등)의 현행·시행예정 개정도 확인한다.
 1. 자사 규정: alio_search_rules(orgName) → alio_read_rule 로 전문을 읽고 형식 오류(오기, 조문 번호 누락 경고, 인용 법령·부처명·조문 번호)를 점검한다.
-2. 기준 대조: 자사 규정 조문을 현행 지침의 대응 조문(alio_guideline 의 articles·query)과 대조해 불일치·미반영 사항을 찾는다.
+2. 기준 대조: 자사 규정 조문을 그 분야 현행 지침의 대응 조문(alio_guideline 의 guideline·articles·query)과 대조해 불일치·미반영 사항을 찾는다.
 3. 비교군: alio_find_related 에 자사 규정(apbaId·idx)을 넘겨 같은 성격의 타 기관 현행 규정을 찾는다. 기관마다 규정 이름이 달라 제목 검색만으로는 빠지는 규정이 많다. 같은 유형(orgType)으로 좁힐 수 있다(⚠️옛 버전 추정 제외).
 4. 조문 비교: alio_search_text·alio_read_rule 로 항목별 공백과 수준 차이를 찾는다.
 5. 개정안: '필수(법령·지침 불일치, 오기)'와 '권고(타 기관 사례)'를 나누고 근거(지침 개정일·조문, 기관·규정·조문)를 적는다. 결과물에 기준 지침 개정일과 최신성 확인일을 명시한다. 한글 파일이 필요하면 alio_write_hwpx 로 저장한다.
@@ -167,7 +171,7 @@ const fmtDiff = (label, base, cur, d) => {
 export function createServer() {
   const server = new McpServer(
     { name: "alio-mcp", version: VERSION },
-    { instructions: `alio-mcp: 공공기관 내부규정(ALIO) 검색·본문 비교와 「${GUIDELINE_TITLE}」 최신성 확인 도구.\n\n${REVIEW_FRAME}` }
+    { instructions: `alio-mcp: 공공기관 내부규정(ALIO) 검색·비슷한 규정 찾기·본문 비교, 정부 지침(ALIO '공공기관 법령/지침' 게시판) 최신성 확인, 한글 개정안 작성 도구. 감시 지침: ${watchedGuidelines().join(", ")}.\n\n${REVIEW_FRAME}` }
   );
 
   // 공통 래퍼: 취소 신호 전달, 오류를 안내 문구로, 응답 길이 상한, 결과 맨 위에 기준 지침(최신성) 표시.
@@ -310,53 +314,62 @@ export function createServer() {
 
   tool(
     "alio_search_text",
-    "여러 기관 규정의 본문(조문)에서 검색어를 찾는다. 제목 키워드로 읽을 규정을 먼저 고른 뒤(예: '복무'), 그 본문에서 query(예: '유연근무|시차출퇴근')가 들어간 조문을 기관별로 보여준다. 기관명·유형·주무부처로 좁힐 수 있다. 처음 읽는 규정은 동시에 여러 건씩 읽고, 이후엔 캐시로 빠르다. 시간 제한에 걸리면 처리한 만큼 돌려주며 같은 요청을 다시 실행하면 이어서 읽는다.",
+    "여러 기관 규정의 본문(조문)에서 검색어를 찾는다. 읽을 규정 범위는 제목 키워드(titleKeyword, 예: '복무'), 내규 분야(field, 예: '복무'·'보수'·'경영혁신' — 이름이 제각각인 규정까지), 분류·기관명·유형·주무부처로 정한다. 전체 규정 목록에서 범위를 바로 골라(제목 검색을 다시 하지 않음) 본문 query(예: '유연근무|시차출퇴근')가 들어간 조문을 기관별로 보여준다. 범위가 크면 시간 제한 안에서 읽은 만큼 돌려주며, 같은 요청을 다시 실행하면 이미 읽은 규정은 캐시로 바로 넘기고 나머지를 이어서 읽는다(범위 최대 2,000건).",
     {
-      titleKeyword: z.string().describe("읽을 규정의 제목 키워드 (예: 복무, 인사, 보수, 윤리). 기관을 하나로 좁혔을 때만 빈 값 허용"),
+      titleKeyword: z.string().optional().describe("읽을 규정의 제목 키워드 (예: 복무, 인사, 보수, 윤리). 띄어쓰기 무시"),
+      field: z.string().optional().describe("내규 분야 (예: 복무, 보수, 인사, 경영혁신, 감사, 계약, 윤리, 안전) — 분야 사전의 제목 낱말로 범위를 정한다"),
       query: z.string().describe("본문 검색어. 공백=모두 포함, '|'=둘 중 하나, 띄어쓰기 무시"),
       ...orgFilter,
       category: z.string().optional().describe("분류코드 K1100~K1500"),
-      maxRules: z.number().optional().describe("본문을 읽을 최대 규정 수 (기본 30, 최대 150)"),
+      maxRules: z.number().optional().describe("범위 중 앞에서부터 읽을 최대 규정 수(기본: 범위 전체, 최대 2000)"),
       includeOld: z
         .boolean()
         .optional()
         .describe("같은 기관에 같은 이름으로 올라온 옛 버전까지 읽기 (기본 false: 시행일이 가장 늦은 것만)"),
     },
-    async ({ titleKeyword, query, category, maxRules, includeOld, ...f }, extra) => {
+    async ({ titleKeyword = "", field, query, category, maxRules, includeOld, ...f }, extra) => {
       const deadline = Date.now() + BUDGET_MS;
       const report = progressReporter(extra);
-      const targets = filterOrgs(await listOrgs(), f);
-      if (!targets.length) return fail(`조건(${describeFilter(f)})에 해당하는 기관이 없습니다.`);
-      if (!titleKeyword.trim() && targets.length > 1)
-        return fail("titleKeyword 없이 여러 기관의 전체 규정을 읽을 수는 없습니다. 제목 키워드를 주거나 기관을 하나로 좁히세요.");
-      const limit = Math.min(Math.max(1, maxRules || 30), 150);
+      const SCOPE_MAX = 2000;
+      const group = field ? GROUPS.find((g) => g.name.includes(field) || g.id === field || g.strong.includes(field)) : null;
+      if (field && !group)
+        return fail(`분야 '${field}'를 사전에서 찾지 못했습니다. 쓸 수 있는 분야: ${GROUPS.map((g) => g.name).join(", ")}. 또는 titleKeyword 로 제목 키워드를 주세요.`);
+      const orgFilterFn = f.orgName || f.orgType || f.dept ? (o) => filterOrgs([o], f).length > 0 : undefined;
+      const cat = await loadCatalog({ deadline: Date.now() + BUDGET_MS * 0.5, orgFilter: orgFilterFn });
+      if (!cat.orgCount) return fail(`조건(${describeFilter(f)})에 해당하는 기관이 없습니다.`);
 
-      const { hits: allRules, failed: orgFailed, timedOut: orgTimedOut } = await searchOrgs(targets, {
-        keyword: titleKeyword,
-        category: category || "",
-        deadline,
-        onProgress: (done, total) => report(done, total * 2, `제목 검색 ${done}/${total}곳`),
-      });
-      const rules = includeOld ? allRules : allRules.filter((r) => !r.superseded);
-      const oldSkipped = allRules.length - rules.length;
+      const kw = normTitle(titleKeyword);
+      const inScope = cat.rules.filter(
+        (r) =>
+          (!kw || normTitle(r.title).includes(kw)) &&
+          (!group || classifyTitle(r.title).some((m) => m.group === group)) &&
+          (!category || r.category === category)
+      );
+      const rules = includeOld ? inScope : inScope.filter((r) => !r.superseded);
+      const oldSkipped = inScope.length - rules.length;
+      const scopeLabel = [titleKeyword && `제목 '${titleKeyword}'`, group && `분야 '${group.name}'`, category && `분류 ${category}`, describeFilter(f)].filter(Boolean).join(", ") || "전체";
+      if (!kw && !group && !category && cat.orgCount > 1 && rules.length > SCOPE_MAX)
+        return fail(`범위(${scopeLabel})가 ${rules.length.toLocaleString()}건이라 너무 넓습니다. titleKeyword·field·category 나 기관 유형·부처로 ${SCOPE_MAX}건 이하가 되게 좁히세요.\n${coverageNote(cat)}`);
+      if (rules.length > SCOPE_MAX && !maxRules)
+        return fail(`범위(${scopeLabel})가 ${rules.length.toLocaleString()}건입니다. ${SCOPE_MAX}건 이하가 되게 좁히거나 maxRules 로 앞에서부터 읽을 수를 정하세요.\n${coverageNote(cat)}`);
       if (!rules.length)
-        return text(
-          `제목에 '${titleKeyword}' 가 들어간 규정이 없어 본문을 읽지 않았습니다 (${targets.length}곳).` +
-            failList("조회 실패 기관", orgFailed) +
-            timeoutNote(orgTimedOut, "기관")
-        );
+        return text(`${coverageNote(cat)}\n범위(${scopeLabel})에 해당하는 규정이 없어 본문을 읽지 않았습니다. 다른 제목 키워드나 분야로 찾아보세요. 결과를 추측하지 마세요.`);
 
-      const toRead = rules.slice(0, limit);
+      const toRead = rules.slice(0, Math.min(maxRules || SCOPE_MAX, SCOPE_MAX));
       const readFailed = [];
       let articleHits = 0;
-      let read = 0;
+      let fresh = 0;
+      let done = 0;
       const { results, skipped: unreadIdx } = await mapLimit(
         toRead,
         settings.concurrency,
         async (r) => {
           try {
             const doc = await loadRuleText(r);
-            if (!doc.cached) await sleep(settings.delayMs);
+            if (!doc.cached) {
+              fresh++;
+              await sleep(settings.delayMs);
+            }
             const found = matchArticles(doc.units, query);
             if (!found.length) return null;
             articleHits += found.length;
@@ -369,29 +382,31 @@ export function createServer() {
               "\n"
             );
           } catch (e) {
+            if (isCancelled()) throw e;
             readFailed.push({ org: r.org, title: r.title, kind: e.kind || "UNKNOWN", error: e.message });
             return null;
           } finally {
-            read++;
-            report(targets.length + (read / toRead.length) * targets.length, targets.length * 2, `본문 ${read}/${toRead.length}건`);
+            report(++done, toRead.length, `본문 ${done}/${toRead.length}건`);
           }
         },
         { deadline }
       );
       const blocks = results.filter(Boolean);
       const unread = unreadIdx.map((i) => toRead[i]);
-
-      const skipped = rules.length - toRead.length;
+      const readCount = toRead.length - unread.length;
+      // 새로 읽는 속도로 남은 반복 횟수 추정
+      const perCall = Math.max(fresh, 20);
       const head =
-        `본문 '${query}' 검색 — 제목 '${titleKeyword}' 규정 ${rules.length}건 중 ${toRead.length - unread.length}건 읽음` +
-        `${describeFilter(f) ? ` (${describeFilter(f)})` : ""}\n` +
-        `→ ${blocks.length}개 규정, ${articleHits}개 조문 일치\n` +
+        `본문 '${query}' 검색 — 범위(${scopeLabel}) 규정 ${rules.length.toLocaleString()}건 중 ${readCount.toLocaleString()}건 확인` +
+        ` (이번에 새로 읽음 ${fresh}건, 나머지는 캐시)\n` +
+        `${coverageNote(cat)}\n` +
+        `→ ${blocks.length}개 규정, ${articleHits}개 조문 일치${unread.length ? " (지금까지 읽은 범위 기준)" : ""}\n` +
         (oldSkipped ? `※ 같은 기관·같은 이름의 옛 버전 추정 ${oldSkipped}건은 제외 (includeOld=true 로 포함 가능)\n` : "") +
-        (skipped ? `⚠️ ${skipped}건은 읽지 않음 (maxRules=${limit}). maxRules 를 늘리거나 유형·부처로 좁히세요.\n` : "") +
-        failList("조회 실패 기관", orgFailed) +
+        (rules.length > toRead.length ? `⚠️ 범위 중 ${rules.length - toRead.length}건은 읽지 않음 (maxRules=${toRead.length}).\n` : "") +
         failList("본문 읽기 실패 규정", readFailed) +
-        timeoutNote(orgTimedOut, "기관(제목 검색)") +
-        timeoutNote(unread, "규정(본문 읽기)") +
+        (unread.length
+          ? `\n⏱️ 아직 읽지 못한 규정 ${unread.length}건 — 같은 요청을 다시 실행하면 이어서 읽습니다(약 ${Math.ceil(unread.length / perCall)}회 더). 그 전까지 결과는 일부입니다. 결과를 추측하지 마세요.\n`
+          : "") +
         (blocks.length ? "" : `\n일치하는 조문 없음. 다른 표현(유사어)으로 다시 찾아보세요. 결과를 추측하지 마세요.\n`);
       return text(joinCapped(head, blocks, "규정"));
     }
@@ -425,11 +440,25 @@ export function createServer() {
         onProgress: (d, t) => report(d, t, `후보 본문 ${d}/${t}건`),
       });
       const baseName = r.base ? `${r.base.org} 「${r.base.title}」` : `주제어 '${topic}'`;
+      // 이 분야 규정을 검토할 때 볼 정부 지침(게시판에 실제로 있는 것만)
+      let guideNote = "";
+      const hints = [...new Set(r.groups.flatMap((g) => g.guidelines))];
+      if (hints.length) {
+        try {
+          const series = await listGuidelineSeries();
+          const hits = [...new Map(hints.flatMap((h) => findSeries(series, h)).map((x) => [x.key, x])).values()];
+          if (hits.length)
+            guideNote = `관련 정부 지침: ${hits.map((x) => `${x.name}(최신 ${x.versions[0].revDate})`).join(", ")} → alio_guideline 의 guideline 으로 최신성·조문 대조\n`;
+        } catch {
+          guideNote = `관련 정부 지침: ${hints.join(", ")} (게시판 확인 실패 — alio_guideline list 로 다시 확인)\n`;
+        }
+      }
       const field = r.groups.length ? r.groups.map((g) => g.name).join("·") : `사전에 없는 분야 — 제목 핵심 말 '${r.core}'로 찾음`;
       const checked = r.total - r.titleOnly.length - r.unchecked.length;
       const head =
         `비슷한 규정 찾기 — 기준: ${baseName} (분야: ${field})\n` +
         (r.base ? `기준 조문 ${r.baseSignature.length}개(목적·정의 등 흔한 조문 제외)와 같은 주제 조문이 있는지 비교\n` : "") +
+        guideNote +
         `${coverageNote(r.catalog)}\n` +
         `후보 ${r.total}건(제목) 중 ${checked}건 본문 비교${r.titleOnly.length ? ` · 나머지 ${r.titleOnly.length}건은 제목만 일치(본문 미확인)` : ""}\n` +
         failList("본문 읽기 실패", r.failed) +
@@ -481,17 +510,33 @@ export function createServer() {
 
   tool(
     "alio_guideline",
-    `「${GUIDELINE_TITLE}」의 최신 개정 여부를 ALIO(재정경제부 게시)에서 확인하고, 달라진 점을 조문별로 비교한다. 지난 확인 이후 새 개정이 있으면 그 차이를, since(예: 검토할 규정의 시행일)를 주면 그 시점 개정본과 현행의 차이를, 아무것도 없으면 직전 개정 대비 차이를 보여준다. articles·query 로 현행 지침 조문을 읽는다. 내규 검토 전에 먼저 호출한다.`,
+    `정부 지침(ALIO '공공기관 법령/지침' 게시판, 재정경제부 게시)의 최신 개정 여부를 확인하고 달라진 점을 조문별로 비교한다. guideline 에 지침명 일부(예: '임원 보수지침', '예산운용지침', '경영에 관한 지침', '안전관리')를 주면 그 지침을, 없으면 감시 지침(기본 「${GUIDELINE_TITLE}」)을 본다. list=true 면 게시판의 지침 전체(계열별 최신 개정일)를 보여준다. 지난 확인 이후 새 개정이 있으면 그 차이를, since(예: 검토할 규정의 시행일)를 주면 그 시점 개정본과 현행의 차이를, 아무것도 없으면 직전 개정 대비 차이를 보여준다. articles·query 로 현행 지침 조문을 읽는다. 내규 검토 전에 먼저 호출한다.`,
     {
+      guideline: z.string().optional().describe("지침명 일부 (예: '임원 보수지침', '예산운용지침'). 없으면 감시 지침"),
+      list: z.boolean().optional().describe("게시판 지침 전체 목록(계열별 최신 개정일·버전 수)"),
       since: z.string().optional().describe("기준일 (예: '2023.02.15' — 자사 규정 시행일). 그날 시행 중이던 개정본과 현행을 비교"),
       articles: z.array(z.string()).optional().describe("현행 지침에서 읽을 조문 (예: ['제9조','제11조'])"),
       query: z.string().optional().describe("현행 지침 본문 검색어 (공백=모두 포함, '|'=둘 중 하나)"),
     },
-    async ({ since, articles, query }) => {
-      const versions = await listGuidelineVersions({ force: true });
+    async ({ guideline, list, since, articles, query }) => {
+      const series = await listGuidelineSeries({ force: true });
+      if (list) {
+        const watched = new Set(watchedGuidelines().flatMap((t) => findSeries(series, t).map((x) => x.key)));
+        return text(
+          `ALIO '공공기관 법령/지침' 게시판 지침 ${series.length}종 (최근 개정 순, ★ 감시 지침)\n\n` +
+            series.map((x) => `- ${watched.has(x.key) ? "★ " : ""}${x.name} | 최신 ${x.versions[0].revDate} (${x.versions[0].title}) | 게시 ${x.versions.length}건`).join("\n") +
+            `\n\n※ guideline 에 지침명 일부를 주면 그 지침의 변경점·조문을 봅니다. 결과 머리에 늘 표시할 지침은 설정(ALIO_WATCH_GUIDELINES, 확장 설정 '감시 지침')으로 바꿉니다.`
+        );
+      }
+      const want = guideline || watchedGuidelines()[0];
+      const found = findSeries(series, want);
+      if (!found.length) return fail(`게시판에서 「${want}」 지침을 찾지 못했습니다. list=true 로 지침 이름을 확인하세요. 추측하지 마세요.`);
+      if (found.length > 1)
+        return fail(`「${want}」에 맞는 지침이 여러 개입니다. 하나를 골라 다시 부르세요:\n` + found.map((x) => `- ${x.name} (최신 ${x.versions[0].revDate})`).join("\n"));
+      const versions = found[0].versions;
       const cur = versions[0];
       const curDoc = await loadGuidelineVersion(cur);
-      const seen = await readSeen();
+      const seen = await readSeen(undefined, found[0].key);
       const checked = new Date().toISOString().slice(0, 10);
       const parts = [
         `📌 현행: ${cur.title} — ALIO '공공기관 법령/지침' 게시 ${cur.postedDate}${cur.publisher ? ` (${cur.publisher})` : ""}, 최신성 확인 ${checked}`,
