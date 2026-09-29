@@ -294,10 +294,21 @@ test("캐시: 기관 목록과 같은 조건의 검색은 다시 요청하지 �
   assert.ok(calls.length > n, "다른 검색어인데 캐시를 썼음");
 });
 
+// 응답 없이 멈춘 연결. AbortSignal.timeout 의 타이머는 실행 루프를 붙잡지 않아(Node 20·22), 실제 연결처럼
+// 끊길 때까지 루프를 붙잡아 두지 않으면 테스트 러너가 "끝날 일이 없다"며 테스트를 취소한다.
+const hangingFetch = (url, init) =>
+  new Promise((_, reject) => {
+    const hold = setInterval(() => {}, 1000);
+    init.signal.addEventListener("abort", () => {
+      clearInterval(hold);
+      reject(init.signal.reason);
+    });
+  });
+
 test("요청별 시간 제한: 응답 없이 멈춘 요청을 끊고 NETWORK 오류로 알린다", async () => {
   settings.requestTimeoutMs = 50;
   settings.retries = 1;
-  useFetch((url, init) => new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(init.signal.reason))));
+  useFetch(hangingFetch);
   await assert.rejects(listOrgs(), (e) => e.kind === "NETWORK" && /응답 없음/.test(e.message));
   assert.equal(calls.length, 2);
 });
@@ -330,7 +341,7 @@ test("취소된 요청: 네트워크를 부르지 않고 CANCELLED 로 끝낸다
 test("응답을 기다리는 중 취소되면 연결 실패(NETWORK)가 아니라 CANCELLED", async () => {
   settings.retries = 0; // 마지막 시도에서 취소된 경우
   const ac = new AbortController();
-  useFetch((url, init) => new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(init.signal.reason))));
+  useFetch(hangingFetch);
   const p = runWithSignal(ac.signal, () => listOrgs());
   setTimeout(() => ac.abort(), 20);
   await assert.rejects(p, (e) => e.kind === "CANCELLED");
