@@ -70,6 +70,10 @@ test("도구 목록: 등록 = manifest = README 표", async () => {
   assert.deepEqual(manifest.tools.map((t) => t.name).sort(), registered);
   const inReadme = [...readme.matchAll(/^\| `(alio_\w+)` \|/gm)].map((m) => m[1]).sort();
   assert.deepEqual(inReadme, registered);
+  // 표가 중간에 끊기지 않았는지(표 행 사이에 다른 줄이 끼면 화면에서 표가 깨진다)
+  const lines = readme.split("\n");
+  const rows = lines.map((l, i) => (/^\| `alio_\w+` \|/.test(l) ? i : -1)).filter((i) => i >= 0);
+  for (let i = rows[0]; i <= rows.at(-1); i++) assert.match(lines[i], /^\|/, `README 도구 표가 ${i + 1}번째 줄에서 끊김`);
 });
 
 // Windows 는 관리자·개발자 모드가 아니면 링크를 만들 수 없다 → 그 부분만 건너뛴다

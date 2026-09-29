@@ -6,10 +6,22 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findRelated } from "../src/related.js";
+import { loadCatalog } from "../src/catalog.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cases = JSON.parse(await fs.readFile(path.join(here, "related-cases.json"), "utf8"));
 let bad = 0;
+
+// 품질만 재도록 전체 규정 목록을 먼저 다 받아 둔다(첫 사용 시 목록 받는 속도는 망에 따라 크게 달라 따로 표시)
+{
+  const t = Date.now();
+  const c = await loadCatalog();
+  console.log(`전체 규정 목록 준비: ${c.covered}/${c.orgCount}곳, ${c.rules.length.toLocaleString()}건, ${((Date.now() - t) / 1000).toFixed(0)}초${c.failed.length ? `, 조회 실패 ${c.failed.length}곳` : ""}\n`);
+  if (c.missing.length) {
+    console.log(`✖ 전체 규정 목록을 받지 못함(${c.missing.length}곳)`);
+    process.exit(1);
+  }
+}
 
 for (const c of cases) {
   const t0 = Date.now();
