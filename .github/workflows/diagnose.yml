@@ -1,0 +1,38 @@
+name: ALIO 접속 진단
+
+# GitHub 러너(해외 클라우드)에서 ALIO 접속이 간헐적으로 실패하는 원인을 가리기 위한 수동 진단.
+# 같은 국가정보자원관리원(NIRS) 망의 다른 정부 사이트, 민간 국내 사이트와 성공률을 비교한다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: 사이트별 접속 성공률(각 10회, 연결 제한 10초)
+        shell: bash
+        run: |
+          for h in www.alio.go.kr www.law.go.kr www.gov.kr www.naver.com; do
+            ok=0; fail=0; times=""
+            for i in $(seq 1 10); do
+              r=$(curl -sS -m 10 -o /dev/null -w "%{http_code} %{time_connect} %{remote_ip}" "https://$h/" 2>&1 | tail -1)
+              code=${r%% *}
+              if [[ "$code" =~ ^[23] ]]; then ok=$((ok+1)); times="$times $(echo $r | cut -d' ' -f2)"; else fail=$((fail+1)); echo "  $h 실패 $i: $r"; fi
+              sleep 2
+            done
+            echo "$h → 성공 $ok / 실패 $fail (연결 초:$times)"
+          done
+
+      - name: ALIO 경로 추적(Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y -qq traceroute > /dev/null
+          sudo traceroute -T -p 443 -q 1 -w 2 -m 25 116.67.78.152 || true
