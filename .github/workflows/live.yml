@@ -25,7 +25,7 @@ jobs:
       - name: ALIO 접속 확인
         run: |
           curl -sS -m 20 -o /dev/null -w "HTTP %{http_code}, 연결 %{time_connect}s, 전체 %{time_total}s, 원격 %{remote_ip}\n" https://www.alio.go.kr/ \
-            || { echo "::error::이 러너에서 ALIO(www.alio.go.kr)에 접속할 수 없습니다(해외 접속 차단 추정)."; exit 1; }
+            || { echo "::error::이 러너에서 ALIO(www.alio.go.kr)에 접속할 수 없습니다. 사이트 장애나 일시적인 네트워크 문제일 수 있으니 다시 실행해 보세요."; exit 1; }
 
       - name: 사이트 구조 점검(기관 목록·검색·상세·첨부)
         run: npm run test:live
