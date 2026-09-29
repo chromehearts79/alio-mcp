@@ -15,13 +15,23 @@
   },
   "homepage": "https://github.com/chromehearts79/alio-mcp",
   "license": "MIT",
-  "keywords": ["공공기관", "내부규정", "내규", "ALIO", "경영혁신", "HWPX", "한글"],
+  "keywords": [
+    "공공기관",
+    "내부규정",
+    "내규",
+    "ALIO",
+    "경영혁신",
+    "HWPX",
+    "한글"
+  ],
   "server": {
     "type": "node",
     "entry_point": "src/server.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/src/server.js"],
+      "args": [
+        "${__dirname}/src/server.js"
+      ],
       "env": {
         "ALIO_OUTPUT_DIR": "${user_config.output_dir}"
       }
@@ -36,25 +46,62 @@
     }
   },
   "tools": [
-    { "name": "alio_list_orgs", "description": "ALIO 등록 공공기관 목록 조회" },
-    { "name": "alio_search_rules", "description": "내부규정 제목 검색 (기관명·유형·주무부처로 좁히기)" },
-    { "name": "alio_read_rule", "description": "규정 현행본 본문을 조문 단위로 읽기" },
-    { "name": "alio_search_text", "description": "여러 기관 규정 본문(조문)에서 검색" },
-    { "name": "alio_get_rule_files", "description": "규정 첨부파일(개정 이력) 목록" },
-    { "name": "alio_download_rule", "description": "규정 현행 파일 내려받기" },
-    { "name": "alio_guideline", "description": "「공공기관의 혁신에 관한 지침」 최신성 확인·조문별 변경점 비교" },
-    { "name": "alio_write_hwpx", "description": "마크다운을 한글(HWPX) 보고서로 저장" }
+    {
+      "name": "alio_list_orgs",
+      "description": "ALIO 등록 공공기관 목록 조회"
+    },
+    {
+      "name": "alio_search_rules",
+      "description": "내부규정 제목 검색 (기관명·유형·주무부처로 좁히기)"
+    },
+    {
+      "name": "alio_read_rule",
+      "description": "규정 현행본 본문을 조문 단위로 읽기"
+    },
+    {
+      "name": "alio_search_text",
+      "description": "여러 기관 규정 본문(조문)에서 검색"
+    },
+    {
+      "name": "alio_find_related",
+      "description": "자사 규정·주제어와 같은 성격의 타 기관 규정 찾기(이름이 달라도 조문 구성으로 비교)"
+    },
+    {
+      "name": "alio_get_rule_files",
+      "description": "규정 첨부파일(개정 이력) 목록"
+    },
+    {
+      "name": "alio_download_rule",
+      "description": "규정 현행 파일 내려받기"
+    },
+    {
+      "name": "alio_guideline",
+      "description": "「공공기관의 혁신에 관한 지침」 최신성 확인·조문별 변경점 비교"
+    },
+    {
+      "name": "alio_write_hwpx",
+      "description": "마크다운을 한글(HWPX) 보고서로 저장"
+    }
   ],
   "prompts": [
     {
       "name": "review_rule",
       "description": "자사 규정을 현행 지침과 타 기관 규정에 비추어 검토",
-      "arguments": ["org", "rule", "focus"],
+      "arguments": [
+        "org",
+        "rule",
+        "focus"
+      ],
       "text": "${arguments.org}의 '${arguments.rule}' 관련 규정을 현행 「공공기관의 혁신에 관한 지침」과 타 기관 규정에 비추어 검토해 개정 필요 사항을 정리해 주세요. 중점: ${arguments.focus}"
     }
   ],
   "compatibility": {
-    "platforms": ["darwin", "win32"],
-    "runtimes": { "node": ">=20.0.0" }
+    "platforms": [
+      "darwin",
+      "win32"
+    ],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
   }
 }

@@ -10,6 +10,7 @@ const offline = process.argv.includes("--offline");
 const server = path.resolve(process.argv.slice(2).find((a) => !a.startsWith("--")) || "src/server.js");
 const home = await fs.mkdtemp(path.join(os.tmpdir(), "alio-home-"));
 const env = { PATH: process.env.PATH, HOME: home, USERPROFILE: home, LOCALAPPDATA: path.join(home, "AppData", "Local") };
+env.ALIO_BACKGROUND_REFRESH = "0"; // 점검 중 전체 목록을 뒤에서 받지 않게(찾기 도구는 필요한 만큼 직접 받음)
 // Windows 는 이 값들이 없으면 네트워크·임시 폴더가 동작하지 않는다
 for (const k of ["SystemRoot", "windir", "TEMP", "TMP", "ComSpec", "PATHEXT"]) if (process.env[k]) env[k] = process.env[k];
 // 설치 설정을 비워 둔 확장처럼 치환되지 않은 값을 넘긴다 → 기본 폴더로 떨어져야 한다
@@ -37,7 +38,7 @@ async function step(label, name, args, check) {
 
 const tools = (await client.listTools()).tools.map((t) => t.name);
 console.log(`도구 ${tools.length}개: ${tools.join(", ")}`);
-if (tools.length !== 8) failed++;
+if (tools.length !== 9) failed++;
 
 if (!offline) {
   await step("지침 최신성·조문", "alio_guideline", { articles: ["제11조"] }, (b) => (/📌 현행/.test(b) && /제11조/.test(b) ? "" : "지침 조문 없음"));
@@ -51,6 +52,9 @@ if (!offline) {
     ["ZIP 안 HWPX 규정 본문", "C0352", "9464"],
   ])
     await step(label, "alio_read_rule", { apbaId, idx }, (b) => (/조문 [1-9]\d*개/.test(b) ? "" : "조문 분할 실패"));
+  await step("비슷한 규정 찾기(공기업 범위)", "alio_find_related", { topic: "유연근무", orgType: "공기업", maxCheck: 20 }, (b) =>
+    /비슷한 규정 찾기 — 기준: 주제어 '유연근무'/.test(b) && /전체 규정 목록: \d+\/\d+곳/.test(b) && /■ 1\./.test(b) ? "" : "찾기 결과 형식 이상"
+  );
   await step("본문 검색", "alio_search_text", { orgName: "한국인터넷진흥원", titleKeyword: "혁신", query: "위원회" }, (b) => (/조문 일치/.test(b) ? "" : "형식 이상"));
   await step("원문 내려받기", "alio_download_rule", { apbaId: "C0082", idx: "19714", org: "한국서부발전", title: "경영혁신활동 운영기준" }, (b) =>
     b.includes(path.join(home, "Documents", "alio-mcp", "downloads")) ? "" : "기본 폴더가 아님"

@@ -35,3 +35,6 @@ jobs:
 
       - name: 내규 조문 분할 회귀 벤치(실제 내규 106건)
         run: npm run bench
+
+      - name: 비슷한 규정 찾기 품질 벤치(경영혁신 정답지·유연근무)
+        run: npm run bench:related

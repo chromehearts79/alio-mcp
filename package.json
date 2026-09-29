@@ -33,14 +33,15 @@
   "scripts": {
     "mcp": "node src/server.js",
     "sweep": "node src/sweep.js",
-    "test": "node --test test/client.test.js test/rule-text.test.js test/guideline.test.js test/hwpx.test.js test/server.test.js",
+    "test": "node --test test/client.test.js test/rule-text.test.js test/guideline.test.js test/hwpx.test.js test/catalog.test.js test/related.test.js test/server.test.js",
     "test:live": "node --test test/live.test.js",
     "fixtures": "node test/capture-fixtures.mjs",
     "bundle": "node scripts/build-mcpb.mjs",
     "bench": "node bench/run.mjs",
     "check": "node scripts/check-release.mjs",
     "smoke": "node scripts/smoke-bundle.mjs",
-    "version": "node scripts/sync-version.mjs"
+    "version": "node scripts/sync-version.mjs",
+    "bench:related": "node bench/related.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

@@ -22,6 +22,8 @@ import { markdownToStyledHwpx, HOUSE_STYLE } from "./hwpx.js";
 import { OUTPUT_DIR, DOWNLOAD_DIR } from "./paths.js";
 import { runWithSignal, isCancelled } from "./context.js";
 import { writeNewFile } from "./fsutil.js";
+import { findRelated } from "./related.js";
+import { coverageNote, refreshInBackground } from "./catalog.js";
 
 // 버전은 package.json 하나에서 가져온다(manifest·릴리스 태그도 이 값과 맞춰 검사)
 export const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -134,7 +136,7 @@ const REVIEW_FRAME = `[내규 검토 기본 프레임] 내규 개정·비교 검
 0. 기준 최신성: 모든 alio 도구 결과 맨 위의 '📌 기준 지침' 줄을 확인한다. '⚠️'가 붙어 있으면 다른 작업보다 먼저 alio_guideline 을 호출해 새 개정에서 달라진 점을 사용자에게 설명한다. 검토 대상 규정의 시행일을 alio_guideline 의 since 로 넘겨, 그 규정이 만들어진 뒤 지침에서 달라진 점도 확인한다. 법령정보 MCP(korean-law)가 있으면 인용 법령(공운법 제15조 등)의 현행·시행예정 개정도 확인한다.
 1. 자사 규정: alio_search_rules(orgName) → alio_read_rule 로 전문을 읽고 형식 오류(오기, 조문 번호 누락 경고, 인용 법령·부처명·조문 번호)를 점검한다.
 2. 기준 대조: 자사 규정 조문을 현행 지침의 대응 조문(alio_guideline 의 articles·query)과 대조해 불일치·미반영 사항을 찾는다.
-3. 비교군: 같은 유형·같은 성격의 타 기관 현행 규정을 고른다(⚠️옛 버전 추정 제외).
+3. 비교군: alio_find_related 에 자사 규정(apbaId·idx)을 넘겨 같은 성격의 타 기관 현행 규정을 찾는다. 기관마다 규정 이름이 달라 제목 검색만으로는 빠지는 규정이 많다. 같은 유형(orgType)으로 좁힐 수 있다(⚠️옛 버전 추정 제외).
 4. 조문 비교: alio_search_text·alio_read_rule 로 항목별 공백과 수준 차이를 찾는다.
 5. 개정안: '필수(법령·지침 불일치, 오기)'와 '권고(타 기관 사례)'를 나누고 근거(지침 개정일·조문, 기관·규정·조문)를 적는다. 결과물에 기준 지침 개정일과 최신성 확인일을 명시한다. 한글 파일이 필요하면 alio_write_hwpx 로 저장한다.
 결과에 '⏱️ 시간 제한'이 있으면 같은 요청을 다시 실행해 이어서 처리한다. 확인되지 않은 내용은 추측하지 않는다.`;
@@ -396,6 +398,60 @@ export function createServer() {
   );
 
   tool(
+    "alio_find_related",
+    "자사 규정(apbaId·idx) 또는 주제어(topic)와 같은 성격의 타 기관 규정을 찾는다. 기관마다 이름이 다른 규정(예: 경영혁신규정·혁신경영 실행지침·변화혁신위원회규정)을 내규 분야 사전으로 넓게 모은 뒤, 조문 구성(같은 주제의 조항이 있는지)을 비교해 순위를 매긴다. 처음에는 전체 규정 목록(355곳, 약 3만 6천 건)과 후보 본문을 받느라 여러 번 나눠 처리할 수 있으며, 같은 요청을 다시 실행하면 이어서 한다.",
+    {
+      apbaId: z.string().optional().describe("기준 규정의 기관 ID (alio_search_rules 결과)"),
+      idx: z.string().optional().describe("기준 규정 idx"),
+      topic: z.string().optional().describe("기준 규정 대신 주제어 (예: 유연근무, 임금피크제, 경영혁신)"),
+      orgType: z.string().optional().describe("기관 유형 부분일치 (예: 공기업, 준정부기관, 기타공공기관)"),
+      dept: z.string().optional().describe("주무부처 부분일치"),
+      category: z.string().optional().describe("분류코드 K1100~K1500"),
+      limit: z.number().optional().describe("보여줄 규정 수 (기본 20)"),
+      maxCheck: z.number().optional().describe("본문까지 비교할 후보 수 (기본 60, 최대 200). 후보가 많은 분야에서 늘린다"),
+      includeSameOrg: z.boolean().optional().describe("기준 기관의 다른 규정도 포함 (기본 false)"),
+    },
+    async ({ apbaId, idx, topic, orgType, dept, category, limit, maxCheck, includeSameOrg }, extra) => {
+      if (!(apbaId && idx) && !topic) return fail("기준 규정(apbaId·idx)이나 주제어(topic) 중 하나를 주세요.");
+      const report = progressReporter(extra);
+      const r = await findRelated({
+        rule: apbaId && idx ? { apbaId, idx } : null,
+        topic,
+        filter: { orgType, dept, category },
+        limit: Math.min(Math.max(1, limit || 20), 60),
+        maxCheck: Math.min(Math.max(10, maxCheck || 60), 200),
+        includeSameOrg,
+        deadline: Date.now() + BUDGET_MS,
+        onProgress: (d, t) => report(d, t, `후보 본문 ${d}/${t}건`),
+      });
+      const baseName = r.base ? `${r.base.org} 「${r.base.title}」` : `주제어 '${topic}'`;
+      const field = r.groups.length ? r.groups.map((g) => g.name).join("·") : `사전에 없는 분야 — 제목 핵심 말 '${r.core}'로 찾음`;
+      const checked = r.total - r.titleOnly.length - r.unchecked.length;
+      const head =
+        `비슷한 규정 찾기 — 기준: ${baseName} (분야: ${field})\n` +
+        (r.base ? `기준 조문 ${r.baseSignature.length}개(목적·정의 등 흔한 조문 제외)와 같은 주제 조문이 있는지 비교\n` : "") +
+        `${coverageNote(r.catalog)}\n` +
+        `후보 ${r.total}건(제목) 중 ${checked}건 본문 비교${r.titleOnly.length ? ` · 나머지 ${r.titleOnly.length}건은 제목만 일치(본문 미확인)` : ""}\n` +
+        failList("본문 읽기 실패", r.failed) +
+        timeoutNote(r.unchecked.map((c) => ({ org: c.rule.org, title: c.rule.title })), "후보(본문 비교)");
+      if (!r.total) return text(head + `\n같은 성격으로 보이는 규정을 찾지 못했습니다. 다른 주제어로 다시 찾거나 alio_search_rules 로 제목을 직접 검색하세요. 결과를 추측하지 마세요.`);
+      const blocks = r.top.map(
+        (c, i) =>
+          `\n■ ${i + 1}. ${c.rule.org} | ${c.rule.title} | 시행 ${c.rule.enfDate} | apbaId=${c.rule.apbaId} idx=${c.rule.idx} cat=${c.rule.category}\n` +
+          `   유사도 ${c.score.toFixed(2)} — ${c.title.why}` +
+          (r.base ? ` · 같은 주제 조문 ${c.body.shared.length}/${r.baseSignature.length}${c.body.shared.length ? `: ${c.body.shared.slice(0, 6).join(", ")}` : ""}` : ` · ${c.body.shared.join(", ") || "본문에 주제어 없음"}`)
+      );
+      const sameWords = r.titleOnly.filter((c) => c.title.score >= 0.9);
+      const tail =
+        (r.titleOnly.length
+          ? `\n\n제목만 일치(본문 미확인) ${r.titleOnly.length}건${sameWords.length ? ` — 이 중 기준과 제목 낱말까지 같은 규정 ${sameWords.length}건: ${sameWords.slice(0, 8).map((c) => `${c.rule.org} ${c.rule.title}`).join(" / ")}${sameWords.length > 8 ? " 등" : ""}` : ""}\n→ maxCheck 를 늘리거나 orgType·dept 로 좁혀 다시 실행하세요.`
+          : "") +
+        `\n\n※ 유사도 = 제목 분야 일치(절반) + 기준 조문과 같은 주제 조문 비율(절반). 순위는 참고용이니 채택 전에 alio_read_rule 로 조문 전문을 확인하세요.`;
+      return text(joinCapped(head, blocks, "규정") + tail);
+    }
+  );
+
+  tool(
     "alio_get_rule_files",
     "규정의 첨부파일(제정·개정 이력 포함) 목록과 fileNo를 조회한다. alio_search_rules 결과의 apbaId/idx/category 를 넘긴다.",
     ruleRef,
@@ -544,6 +600,8 @@ export async function start() {
   console.log = console.info = console.debug = console.warn = toStderr;
   await createServer().connect(new StdioServerTransport());
   console.error(`alio-mcp ${VERSION} running (stdio)`);
+  // 전체 규정 목록 중 오래된 기관을 뒤에서 천천히 갱신(비슷한 규정 찾기가 기다리지 않게)
+  if (process.env.ALIO_BACKGROUND_REFRESH !== "0") refreshInBackground();
 }
 
 let isMain = false;
