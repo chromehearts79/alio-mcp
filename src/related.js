@@ -4,7 +4,7 @@
 // 본문 읽기는 규정당 2~3초라 시간 예산 안에서 읽은 만큼 반영하고, 다시 부르면 캐시로 이어서 확인한다.
 import { loadCatalog } from "./catalog.js";
 import { loadRuleText, matchArticles } from "./rule-text.js";
-import { mapLimit, settings } from "./alio-client.js";
+import { mapLimit, settings, listOrgs, searchRules, AlioError } from "./alio-client.js";
 import { isCancelled } from "./context.js";
 import { classifyTitle, titleScore, coreTitle, normTitle } from "./thesaurus.js";
 
@@ -55,6 +55,18 @@ export function overlap(base, cand, threshold = 0.5) {
 }
 
 // maxCheck: 본문까지 비교할 후보 수(제목 점수 순). 넓은 분야(복무 등)는 후보가 천 건을 넘어 상위만 본다.
+// 기준 규정의 제목·분류. 전체 목록을 아직 다 받지 못해 그 기관이 없으면(처음 쓸 때) 그 기관 목록을 직접 받는다.
+export async function resolveBase(rule, rules) {
+  const same = (r) => r.apbaId === rule.apbaId && String(r.idx) === String(rule.idx);
+  const hit = rules.find(same);
+  if (hit) return hit;
+  const org = (await listOrgs()).find((o) => o.apbaId === rule.apbaId);
+  if (!org) throw new AlioError("NO_FILE", `기관 ${rule.apbaId} 를 ALIO 기관 목록에서 찾지 못했습니다. apbaId 를 확인하세요.`);
+  const found = (await searchRules(org, { keyword: "" })).find(same);
+  if (!found) throw new AlioError("NO_FILE", `${org.name} 규정 목록에 idx=${rule.idx} 가 없습니다. alio_search_rules 결과의 idx 를 확인하세요.`);
+  return found;
+}
+
 export async function findRelated({ rule, topic, filter = {}, limit = 20, maxCheck = 60, includeSameOrg = false, deadline, onProgress }) {
   // 목록 받기에는 예산의 일부만 쓴다(뒤에 본문 비교가 이어짐)
   const catDeadline = deadline ? Math.min(deadline, Date.now() + (deadline - Date.now()) * 0.6) : undefined;
@@ -69,7 +81,7 @@ export async function findRelated({ rule, topic, filter = {}, limit = 20, maxChe
   let baseTitle = topic || "";
   let baseSig = [];
   if (rule) {
-    const entry = cat.rules.find((r) => r.apbaId === rule.apbaId && String(r.idx) === String(rule.idx));
+    const entry = await resolveBase(rule, cat.rules);
     const doc = await loadRuleText({ ...entry, ...rule });
     base = { ...entry, ...rule, org: entry?.org || rule.org || doc.org, title: entry?.title || rule.title || doc.title, units: doc.units };
     baseTitle = base.title || baseTitle;

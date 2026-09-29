@@ -103,3 +103,12 @@ test("조회에 실패한 기관은 목록에서 조용히 빠지지 않고 실�
     settings.retries = 3;
   }
 });
+
+test("비슷한 규정 찾기의 기준 규정: 전체 목록에 아직 없는 기관이어도(처음 쓸 때) 그 기관 목록을 받아 찾는다", async () => {
+  const { resolveBase } = await import("../src/related.js");
+  const base = await resolveBase({ apbaId: "C0105", idx: "21892" }, []);
+  assert.equal(base.org, "인천국제공항공사");
+  assert.equal(base.title, "인사규정");
+  await assert.rejects(resolveBase({ apbaId: "C0105", idx: "999999" }, []), /idx=999999 가 없습니다/);
+  await assert.rejects(resolveBase({ apbaId: "C9999", idx: "1" }, []), /기관 C9999/);
+});
