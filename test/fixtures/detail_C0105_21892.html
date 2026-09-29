@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=yes,minimum-scale=1.0" />
+	<meta name="Description" content=""/>
+	<meta property="og:type" content="website">
+	<meta property="og:title" content="">
+	<meta property="og:description" content="">
+	<meta property="og:image" content="">
+	<meta property="og:url" content="">
+	<meta property="og:site_name" content=""/>
+	<meta name="Keywords" content=""/>
+	<meta name="Author" content=""/>
+	<meta name="robots" content="">
+	<meta name="format-detection" content="telephone=no">
+
+	<title>ALIO : 공공기관 경영정보 공개시스템</title>
+	<style>
+		[v-cloak] > * {
+			display: none;
+		}
+	</style>
+	<script>
+        //global 변수 정의
+        var GB_ctPath = "";			// 컨텍스트 경로
+        var GB_ctResPath = "/resources";		// 컨텍스트 + 리소스 경로
+        var GB_resPath = "";
+        var GB_alioYear = "2026"; // 알리오년도
+	</script>
+
+	<script src="/resources/js/jquery/jquery-1.11.1.min.js" ></script>
+    <script src="/resources/js/lib/slick.js"></script>
+
+	<script src="/resources/vue/manifest.js?v=202109131"></script>
+	<script src="/resources/vue/vendor.js?v=202109131"></script>
+	<script src="/resources/vue/app.js?v=20230811"></script>
+
+	<script src="/resources/js/page/portal/alioUtils.js?v=20220714"></script>
+	<script src="/resources/js/page/portal/downloadUtils.js?v=202109131"></script>
+    <script src="/resources/js/lib/jquery-ui.js"></script>
+	<script src="/resources/js/lib/select2.min.js"></script>
+
+	<link rel="shortcut icon" href="/resources/portal/images/common/favicon.ico" type="image/x-icon">
+    <link type="text/css" rel="stylesheet" href="/resources/portal/css/lib/slick.css"/>
+	<link type="text/css" rel="stylesheet" href="/resources/portal/css/common.css" >
+	<!-- 공시 상세보고서 스타일적용시 필요 -->
+	<link type="text/css" rel="stylesheet" href="/resources/portal/css/report_new.css" >
+	<link type="text/css" rel="stylesheet" href="/resources/portal/css/lib/select2.min.css" >
+	
+	<script>
+		Vue.config.devtools = true;
+	</script>
+</head>
+
+<body>
+	
+		
+		<!-- head Start -->
+		<!-- head End -->
+		
+		<!-- body Start -->
+		<div id="popup" class="pb-0">
+    <div class="pop-cont">
+        <div class="detail-wrap">
+            <div class="title-outer">
+                <div class="title-inner">
+                    <div class="logo">
+                        <img v-bind:src="getImgPath('2026070810438693', '인천국제공항공사 영문ci.jpg')" onerror="this.src='/resources/portal/images/common/no_image.jpg'">
+                    </div>
+                    <div class="text-area recruit">
+                        <p class="title">내부규정</p>
+                    </div>
+                </div>
+            </div>
+            <div class="content-outer">
+                <div class="recruit-info-outer">
+                    <div class="recruit-info-inner">
+                       <ul class="list2">
+                            <li>
+                                <p class="tit">
+                                    <span>구분</span>
+                                </p>
+                                <div class="con">
+                                    <div class="terms-list">
+                                        <p>인사·복무·징계</p>
+                                    </div>
+                                </div>
+                            </li>
+                            <li>
+                                <p class="tit">
+                                    <span>제목</span>
+                                </p>
+                                <div class="con">
+                                    <div class="terms-list">
+                                        <p>인사규정</p>
+                                    </div>
+                                </div>
+                            </li>
+                            <li>
+                                <p class="tit">
+                                    <span>파일</span>
+                                </p>
+                                <div class="con">
+                                    <div class="bt-list">
+							<p>
+											<a href="/download/rulefiledown.json?fileNo=90238" target="_goPopFile">인사규정(2019년 9월 개정).hwp</a>
+											<button class="preView" href="javascript:void(0);" onclick="previewAjax('90238', '인사규정(2019년 9월 개정).hwp', 'R');" title="바로보기">
+                                            	<img src="/resources/portal/images/common/view_icon.png"/>
+                                            </button>
+                                            <button class="preListen" href="javascript:void(0);" onclick="preListen('90238', '인사규정(2019년 9월 개정).hwp', 'R');" title="바로듣기">
+                                            	<img src="/resources/portal/images/common/speaker_icon.png"/>
+                                            </button>
+                                        </p>
+							<p>
+											<a href="/download/rulefiledown.json?fileNo=109802" target="_goPopFile">인사규정(2020년도 7월개정).hwp</a>
+											<button class="preView" href="javascript:void(0);" onclick="previewAjax('109802', '인사규정(2020년도 7월개정).hwp', 'R');" title="바로보기">
+                                            	<img src="/resources/portal/images/common/view_icon.png"/>
+                                            </button>
+                                            <button class="preListen" href="javascript:void(0);" onclick="preListen('109802', '인사규정(2020년도 7월개정).hwp', 'R');" title="바로듣기">
+                                            	<img src="/resources/portal/images/common/speaker_icon.png"/>
+                                            </button>
+                                        </p>
+							<p>
+											<a href="/download/rulefiledown.json?fileNo=118035" target="_goPopFile">인사규정(2020년도 12월 개정).hwp</a>
+											<button class="preView" href="javascript:void(0);" onclick="previewAjax('118035', '인사규정(2020년도 12월 개정).hwp', 'R');" title="바로보기">
+                                            	<img src="/resources/portal/images/common/view_icon.png"/>
+                                            </button>
+                                            <button class="preListen" href="javascript:void(0);" onclick="preListen('118035', '인사규정(2020년도 12월 개정).hwp', 'R');" title="바로듣기">
+                                            	<img src="/resources/portal/images/common/speaker_icon.png"/>
+                                            </button>
+                                        </p>
+							<p>
+											<a href="/download/rulefiledown.json?fileNo=155706" target="_goPopFile">인사규정(2021년 7월 개정).hwp</a>
+											<button class="preView" href="javascript:void(0);" onclick="previewAjax('155706', '인사규정(2021년 7월 개정).hwp', 'R');" title="바로보기">
+                                            	<img src="/resources/portal/images/common/view_icon.png"/>
+                                            </button>
+                                            <button class="preListen" href="javascript:void(0);" onclick="preListen('155706', '인사규정(2021년 7월 개정).hwp', 'R');" title="바로듣기">
+                                            	<img src="/resources/portal/images/common/speaker_icon.png"/>
+                                            </button>
+                                        </p>
+							<p>
+											<a href="/download/rulefiledown.json?fileNo=159064" target="_goPopFile">인사규정(22년 10월 개정).hwp</a>
+											<button class="preView" href="javascript:void(0);" onclick="previewAjax('159064', '인사규정(22년 10월 개정).hwp', 'R');" title="바로보기">
+                                            	<img src="/resources/portal/images/common/view_icon.png"/>
+                                            </button>
+                                            <button class="preListen" href="javascript:void(0);" onclick="preListen('159064', '인사규정(22년 10월 개정).hwp', 'R');" title="바로듣기">
+                                            	<img src="/resources/portal/images/common/speaker_icon.png"/>
+                                            </button>
+                                        </p>
+							<p>
+											<a href="/download/rulefiledown.json?fileNo=166414" target="_goPopFile">인사규정(2023년 1월 개정).hwpx</a>
+											<button class="preView" href="javascript:void(0);" onclick="previewAjax('166414', '인사규정(2023년 1월 개정).hwpx', 'R');" title="바로보기">
+                                            	<img src="/resources/portal/images/common/view_icon.png"/>
+                                            </button>
+                                            <button class="preListen" href="javascript:void(0);" onclick="preListen('166414', '인사규정(2023년 1월 개정).hwpx', 'R');" title="바로듣기">
+                                            	<img src="/resources/portal/images/common/speaker_icon.png"/>
+                                            </button>
+                                        </p>
+							<p>
+											<a href="/download/rulefiledown.json?fileNo=218027" target="_goPopFile">인사규정(2025년도 6월 개정).hwp</a>
+											<button class="preView" href="javascript:void(0);" onclick="previewAjax('218027', '인사규정(2025년도 6월 개정).hwp', 'R');" title="바로보기">
+                                            	<img src="/resources/portal/images/common/view_icon.png"/>
+                                            </button>
+                                            <button class="preListen" href="javascript:void(0);" onclick="preListen('218027', '인사규정(2025년도 6월 개정).hwp', 'R');" title="바로듣기">
+                                            	<img src="/resources/portal/images/common/speaker_icon.png"/>
+                                            </button>
+                                        </p>
+							</div>
+                                </div>
+                            </li>
+                            <li>
+                                <p class="tit">
+                                    <span>제·개정일</span>
+                                </p>
+                                <div class="con">
+                                    <div class="terms-list">
+                                        <p>2025.06.26</p>
+                                    </div>
+                                </div>
+                            </li>
+                            <li>
+                                <p class="tit">
+                                    <span>최종 수정일</span>
+                                </p>
+                                <div class="con">
+                                    <div class="terms-list">
+                                        <p>2025.07.04</p>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="btn-outer">
+                    <a href="javascript:void(0)" onclick="window.close();">닫기</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    <script src="/resources/js/design_common.js"></script>
+
+    <script>
+        var app = new Vue({
+            el: "#popup",
+            data: function () {
+            },
+            created: function () {
+            },
+            methods: {
+            }
+        });
+    </script>        <!-- body Start -->
+		
+		<!-- footer Start -->
+		<div id="loadingBar" style="transition: none 0s ease 0s; opacity: 1; display:none;"> 
+	<div class="bar" role="bar" 
+		style="transform: translate3d(-92%, 0px, 0px); transition: all 200ms ease 0s;"> 
+		<div class="peg"></div> 
+	</div> 
+	<div class="spinner" role="spinner"> 
+		<div class="spinner-icon"></div> 
+		<button type="button" class="cancel-bt" id="nprogressCancelBt">취소하기</button> 
+	</div>
+</div><!-- footer Start -->
+		
+	
+</body>
+</html>

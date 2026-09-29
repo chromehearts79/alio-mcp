@@ -1,0 +1,51 @@
+{
+  "name": "alio-mcp",
+  "version": "0.5.0",
+  "description": "공공기관 내부규정(ALIO) 검색·본문 비교, 「공공기관의 혁신에 관한 지침」 최신성 확인, 한글(HWPX) 개정안 작성 MCP 서버",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "alio",
+    "공공기관",
+    "내부규정",
+    "hwpx"
+  ],
+  "license": "MIT",
+  "author": "chromehearts79",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chromehearts79/alio-mcp.git"
+  },
+  "homepage": "https://github.com/chromehearts79/alio-mcp#readme",
+  "type": "module",
+  "bin": {
+    "alio-mcp": "src/server.js"
+  },
+  "files": [
+    "src",
+    "manifest.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "mcp": "node src/server.js",
+    "sweep": "node src/sweep.js",
+    "test": "node --test test/client.test.js test/rule-text.test.js test/guideline.test.js test/hwpx.test.js",
+    "test:live": "node --test test/live.test.js",
+    "fixtures": "node test/capture-fixtures.mjs",
+    "bundle": "node scripts/build-mcpb.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "jszip": "3.10.1",
+    "kordoc": "4.15.7",
+    "pdfjs-dist": "4.10.38",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2"
+  }
+}

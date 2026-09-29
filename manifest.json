@@ -1,0 +1,60 @@
+{
+  "manifest_version": "0.3",
+  "name": "alio-mcp",
+  "display_name": "ALIO 공공기관 내규 검색",
+  "version": "0.5.0",
+  "description": "공공기관 355곳의 내부규정(ALIO)을 검색·비교하고, 「공공기관의 혁신에 관한 지침」 최신성을 확인하며, 개정안을 한글(HWPX) 문서로 저장합니다.",
+  "long_description": "ALIO(공공기관 경영정보 공개시스템)에 공개된 공공기관 내부규정을 제목·본문(조문)으로 검색하고, 규정 전문을 조문 단위로 읽습니다. 모든 결과에 「공공기관의 혁신에 관한 지침」 기준 개정일을 표시하고 새 개정이 있으면 알려 주며, 조문별 변경점을 비교합니다. 검토 결과는 보고서 양식의 한글(HWPX) 문서로 저장할 수 있습니다(함초롬바탕, 본문 15pt·표 12pt, 신구조문 대비표 밑줄).\n\nALIO 비공식 조회 방식을 쓰므로 사이트가 바뀌면 동작하지 않을 수 있습니다. API 키는 필요 없습니다.",
+  "author": {
+    "name": "chromehearts79",
+    "url": "https://github.com/chromehearts79"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chromehearts79/alio-mcp"
+  },
+  "homepage": "https://github.com/chromehearts79/alio-mcp",
+  "license": "MIT",
+  "keywords": ["공공기관", "내부규정", "내규", "ALIO", "경영혁신", "HWPX", "한글"],
+  "server": {
+    "type": "node",
+    "entry_point": "src/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/src/server.js"],
+      "env": {
+        "ALIO_OUTPUT_DIR": "${user_config.output_dir}"
+      }
+    }
+  },
+  "user_config": {
+    "output_dir": {
+      "type": "directory",
+      "title": "저장 폴더",
+      "description": "만든 한글 문서와 내려받은 규정 원문을 저장할 폴더. 비워 두면 문서(Documents) 폴더 아래 alio-mcp 에 저장합니다.",
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "alio_list_orgs", "description": "ALIO 등록 공공기관 목록 조회" },
+    { "name": "alio_search_rules", "description": "내부규정 제목 검색 (기관명·유형·주무부처로 좁히기)" },
+    { "name": "alio_read_rule", "description": "규정 현행본 본문을 조문 단위로 읽기" },
+    { "name": "alio_search_text", "description": "여러 기관 규정 본문(조문)에서 검색" },
+    { "name": "alio_get_rule_files", "description": "규정 첨부파일(개정 이력) 목록" },
+    { "name": "alio_download_rule", "description": "규정 현행 파일 내려받기" },
+    { "name": "alio_guideline", "description": "「공공기관의 혁신에 관한 지침」 최신성 확인·조문별 변경점 비교" },
+    { "name": "alio_write_hwpx", "description": "마크다운을 한글(HWPX) 보고서로 저장" }
+  ],
+  "prompts": [
+    {
+      "name": "review_rule",
+      "description": "자사 규정을 현행 지침과 타 기관 규정에 비추어 검토",
+      "arguments": ["org", "rule", "focus"],
+      "text": "${arguments.org}의 '${arguments.rule}' 관련 규정을 현행 「공공기관의 혁신에 관한 지침」과 타 기관 규정에 비추어 검토해 개정 필요 사항을 정리해 주세요. 중점: ${arguments.focus}"
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": { "node": ">=20.0.0" }
+  }
+}

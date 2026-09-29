@@ -1,0 +1,10 @@
+node_modules/
+# 데이터 재배포 방지 — 다운로드 규정 파일·스냅샷은 커밋하지 않음
+downloads/
+snapshots/
+*.hwp
+*.hwpx
+*.pdf
+*.log
+.DS_Store
+dist/
