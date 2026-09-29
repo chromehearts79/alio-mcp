@@ -6,6 +6,7 @@
 
 | 파일 | 역할 |
 |---|---|
+| `src/main.js` | 실행 진입점 — 모듈을 불러오기 전에 stdout 보호 후 서버 시작 |
 | `src/server.js` | 도구·프롬프트 등록(`createServer`), 공통 래퍼(취소·오류 안내·응답 상한·기준 지침 표시), 직접 실행 시에만 stdio 시작 |
 | `src/alio-client.js` | ALIO 비공식 JSON API(기관·검색·상세·첨부), 재시도·시간 제한·취소, 동시 조회(`mapLimit`) |
 | `src/rule-text.js` | 첨부 → 본문 추출(kordoc) → 조문·부칙·별표 분할, 디스크 캐시(`CACHE_VERSION`) |

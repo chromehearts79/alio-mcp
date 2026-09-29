@@ -131,8 +131,9 @@ test("요청을 취소하면 서버도 조회를 멈춘다", async () => {
 });
 
 test("직접 실행하면 라이브러리의 console 출력이 stdout(통신)을 오염시키지 않는다", async () => {
-  const noise = `data:text/javascript,setTimeout(()=>{console.log("NOISE-LOG");console.info("NOISE-INFO")},300)`;
-  const p = spawn(process.execPath, ["--import", noise, path.join(root, "src", "server.js")], {
+  // 20ms: 서버가 큰 모듈(kordoc 등)을 불러오는 도중 / 300ms: 불러온 뒤 — 어느 때 찍어도 stdout 으로 새면 안 된다
+  const noise = `data:text/javascript,setTimeout(()=>console.log("NOISE-LOG"),20);setTimeout(()=>console.info("NOISE-INFO"),300)`;
+  const p = spawn(process.execPath, ["--import", noise, path.join(root, "src", "main.js")], {
     env: { ...process.env, ALIO_CACHE_DIR: path.join(tmp, "cache2"), ALIO_OUTPUT_DIR: path.join(tmp, "out2"), ALIO_BACKGROUND_REFRESH: "0" },
   });
   let out = "";

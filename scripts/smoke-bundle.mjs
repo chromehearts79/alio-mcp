@@ -14,7 +14,7 @@ const bundle = path.join(root, "dist", `alio-mcp-${version}.mcpb`);
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "alio-bundle-"));
 try {
   mcpb(["unpack", bundle, dir], { stdio: "pipe" });
-  const args = [path.join(root, "test", "e2e-smoke.mjs"), path.join(dir, "src", "server.js")];
+  const args = [path.join(root, "test", "e2e-smoke.mjs"), path.join(dir, "src", "main.js")];
   if (!process.argv.includes("--live")) args.push("--offline");
   execFileSync(process.execPath, args, { stdio: "inherit" });
 } finally {

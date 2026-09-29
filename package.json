@@ -19,7 +19,7 @@
   "homepage": "https://github.com/chromehearts79/alio-mcp#readme",
   "type": "module",
   "bin": {
-    "alio-mcp": "src/server.js"
+    "alio-mcp": "src/main.js"
   },
   "files": [
     "src",
@@ -31,7 +31,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "mcp": "node src/server.js",
+    "mcp": "node src/main.js",
     "sweep": "node src/sweep.js",
     "test": "node --test test/client.test.js test/rule-text.test.js test/guideline.test.js test/hwpx.test.js test/catalog.test.js test/related.test.js test/server.test.js",
     "test:live": "node --test test/live.test.js",

@@ -35,7 +35,7 @@ cd alio-mcp && npm install --omit=optional
   "mcpServers": {
     "alio": {
       "command": "node",
-      "args": ["<경로>/alio-mcp/src/server.js"]
+      "args": ["<경로>/alio-mcp/src/main.js"]
     }
   }
 }
@@ -44,7 +44,7 @@ cd alio-mcp && npm install --omit=optional
 Claude Code에서는 명령 한 줄로 추가할 수 있습니다.
 
 ```bash
-claude mcp add alio -- node <경로>/alio-mcp/src/server.js
+claude mcp add alio -- node <경로>/alio-mcp/src/main.js
 ```
 
 ## 사용 예

@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 
 const offline = process.argv.includes("--offline");
-const server = path.resolve(process.argv.slice(2).find((a) => !a.startsWith("--")) || "src/server.js");
+const server = path.resolve(process.argv.slice(2).find((a) => !a.startsWith("--")) || "src/main.js");
 const home = await fs.mkdtemp(path.join(os.tmpdir(), "alio-home-"));
 const env = { PATH: process.env.PATH, HOME: home, USERPROFILE: home, LOCALAPPDATA: path.join(home, "AppData", "Local") };
 env.ALIO_BACKGROUND_REFRESH = "0"; // 점검 중 전체 목록을 뒤에서 받지 않게(찾기 도구는 필요한 만큼 직접 받음)

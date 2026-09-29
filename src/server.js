@@ -593,7 +593,7 @@ export function createServer() {
   return server;
 }
 
-// 직접 실행(alio-mcp 명령, node src/server.js, 확장 설치본)일 때만 stdio 로 시작한다.
+// stdio 로 시작한다. 보통은 src/main.js 가 부른다(모듈을 불러오기 전에 stdout 보호). node src/server.js 로 바로 실행해도 동작한다.
 export async function start() {
   // stdout 은 MCP 통신 전용 — 의존 라이브러리가 console 로 찍는 글이 통신을 깨지 않게 stderr 로 돌린다
   const toStderr = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
