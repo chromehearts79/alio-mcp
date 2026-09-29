@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-29
+
 ### Added
 - 요청 취소: 클라이언트가 취소하면 355곳 검색 같은 긴 조회도 바로 멈춘다.
 - 오류 안내: 실패 종류(`NETWORK`·`SCHEMA`·`PARSE` 등)와 다음 조치를 함께 알려 준다. 파일 저장 오류도 원인과 조치를 한국어로 알려 준다.
@@ -31,5 +33,6 @@
 - 한글(HWPX) 보고서 저장(`alio_write_hwpx`): 함초롬바탕(※·별첨 함초롬돋움), 본문 15pt·표 12pt, 한글 어절·영어 단어 줄 나눔, 양쪽 정렬, 신구조문 대비표(열 너비 37:37:26, 바뀐 부분 밑줄).
 - Claude 데스크톱 확장(.mcpb) 배포. 저장·캐시 위치는 OS 표준 폴더(`ALIO_OUTPUT_DIR`·`ALIO_CACHE_DIR`로 변경).
 
-[Unreleased]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/chromehearts79/alio-mcp/releases/tag/v0.5.0

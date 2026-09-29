@@ -1,6 +1,6 @@
 {
   "name": "alio-mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "공공기관 내부규정(ALIO) 검색·본문 비교, 「공공기관의 혁신에 관한 지침」 최신성 확인, 한글(HWPX) 개정안 작성 MCP 서버",
   "keywords": [
     "mcp",
