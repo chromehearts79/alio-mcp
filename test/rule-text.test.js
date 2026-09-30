@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { markdownToHwpx } from "kordoc";
 import { settings, baseTitle, markSuperseded } from "../src/alio-client.js";
-import { splitArticles, matchArticles, pickArticles, loadRuleText, articleGaps, excerpt, pickZipEntry, nameDate } from "../src/rule-text.js";
+import { splitArticles, matchArticles, substantiveMatches, pickArticles, loadRuleText, articleGaps, excerpt, pickZipEntry, nameDate } from "../src/rule-text.js";
 
 // 실제 규정(kordoc 추출 결과)의 모양을 본뜬 예시
 const SAMPLE = `# 복무규정
@@ -252,6 +252,22 @@ test("조문 선택: 여러 표기와 없는 조문 보고", () => {
     ["제3조의2", "제5조", "부칙(2020.1.1)", "부칙(2026.3.1)", "[별표 1]"]
   );
   assert.deepEqual(missing, ["제99조"]);
+});
+
+test("여러 규정 검색: 별표·부칙에 규정 이름으로만 나온 일치는 뺀다(실사례: 내규 목록의 규제입증위원회 운영지침)", () => {
+  const q = "규제입증|규제심사";
+  const u = [
+    { kind: "조문", no: "제18조의2", title: "규제입증위원회", text: "① 규제의 신설 또는 존치 여부를 심의하기 위하여 규제입증위원회를 운영한다." },
+    { kind: "조문", no: "제37조", title: "위원회", text: "② 운영은 「적극행정 및 규제입증위원회 운영기준」에 따른다." }, // 조문은 그대로
+    { kind: "별표", no: "[별표 1]", title: "내규분류표", text: "<tr><td>규제입증위원회 운영지침</td><td>2020.12.03.</td></tr><tr><td>규제입증위원회운영규칙</td></tr>" },
+    { kind: "별표", no: "[별지 제2호]", title: "규제영향평가서", text: "규제심사 결과를 적는다" }, // 이름이 아닌 쓰임
+    { kind: "부칙", no: "부칙", title: "", text: "종전의 규제심사위원회 운영지침은 폐지한다." },
+    { kind: "구간", no: "구간3", title: "", text: "규제심사기준에 따라 검토" }, // 안내서 본문은 그대로
+  ];
+  const r = substantiveMatches(u, q);
+  assert.deepEqual(r.kept.map((x) => x.no), ["제18조의2", "제37조", "[별지 제2호]", "구간3"]);
+  assert.equal(r.nameOnly, 2);
+  assert.equal(matchArticles(u, q).length, 6); // 규정 하나 읽기(matchArticles)는 모두 보여 준다
 });
 
 test("규정명 비교: 날짜 괄호·분류번호만 떼고 내용 괄호는 남긴다", () => {

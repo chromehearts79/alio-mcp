@@ -3,7 +3,7 @@
 //  2) 후보의 조문 제목 구성을 자사 규정과 비교해(예: 위원회·혁신계획·혁신책임관 조항이 있는가) 순위를 매긴다.
 // 본문 읽기는 규정당 2~3초라 시간 예산 안에서 읽은 만큼 반영하고, 다시 부르면 캐시로 이어서 확인한다.
 import { loadCatalog } from "./catalog.js";
-import { loadRuleText, matchArticles } from "./rule-text.js";
+import { loadRuleText, substantiveMatches } from "./rule-text.js";
 import { mapLimit, settings, listOrgs, searchRules, AlioError } from "./alio-client.js";
 import { isCancelled } from "./context.js";
 import { classifyTitle, titleScore, coreTitle, normTitle, hostFamilies, anchorQuery } from "./thesaurus.js";
@@ -52,6 +52,15 @@ export function overlap(base, cand, threshold = 0.5) {
   if (!base.length) return { score: 0, shared: [] };
   const shared = base.filter((b) => cand.some((c) => dice(b.grams, c.grams) >= threshold)).map((b) => b.title);
   return { score: shared.length / base.length, shared };
+}
+
+// 주제어만 있을 때의 본문 점수: 주제어가 든 조문 + 그 분야의 측정된 본문 검색어가 든 조문(중복 없이).
+// 주제어만 세면 같은 분야라도 다른 말을 쓰는 규정(예: '규제혁신' ↔ 규제입증위원회 규정의 '규제입증')이 뒤로 밀린다.
+export function topicHits(units, topic, groups = []) {
+  const anchors = [...new Set(groups.flatMap((g) => g.body?.anchors || []))];
+  const found = new Set(substantiveMatches(units, topic).kept);
+  if (anchors.length) for (const u of substantiveMatches(units, anchors.join("|")).kept) found.add(u);
+  return { count: found.size, label: `'${topic}'${anchors.length ? "·분야 검색어" : ""} 조문 ${found.size}개` };
 }
 
 // 분야별 제목 규정 보유 현황: 그 분야 강한 낱말 제목의 현행 규정이 있는 기관 수와 없는 기관 이름.
@@ -144,9 +153,8 @@ export async function findRelated({ rule, topic, filter = {}, limit = 20, maxChe
         if (!doc.cached) read++;
         if (baseSig.length) c.body = overlap(baseSig, signature(doc.units));
         else {
-          // 주제어만 있으면: 본문에 주제어가 든 조문 수
-          const hits = matchArticles(doc.units, topic).length;
-          c.body = { score: Math.min(1, hits / 3), shared: hits ? [`'${topic}' 조문 ${hits}개`] : [] };
+          const hits = topicHits(doc.units, topic, groups);
+          c.body = { score: Math.min(1, hits.count / 3), shared: hits.count ? [hits.label] : [] };
         }
         c.articles = doc.units.filter((u) => u.kind === "조문").length;
       } catch (e) {

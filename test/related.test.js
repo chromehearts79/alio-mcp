@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GROUPS, classifyTitle, titleScore, coreTitle, normTitle, hostFamilies, anchorQuery } from "../src/thesaurus.js";
-import { signature, overlap, fieldCoverage, hostRules } from "../src/related.js";
+import { signature, overlap, fieldCoverage, hostRules, topicHits } from "../src/related.js";
 
 const ids = (t) => classifyTitle(t).map((m) => `${m.group.id}:${m.level}`);
 const scoreFor = (base, cand) => titleScore(cand, classifyTitle(base), coreTitle(base)).score;
@@ -90,6 +90,17 @@ test("담는 규정: 측정한 분야별 대표 사례", () => {
   assert.deepEqual(hostFamilies(g("규제"), "제규정관리규정"), ["내규관리"]);
   assert.equal(g("적극행정").body.uncoveredOnly, true);
   assert.ok(!g("규제").body.uncoveredOnly); // 있는 기관의 내규관리 규제심사 조항도 비교 자료
+});
+
+test("주제어로 찾기: 그 분야의 측정된 본문 검색어가 든 조문도 센다(규제혁신 ↔ 규제입증위원회 규정)", () => {
+  const g = GROUPS.find((x) => x.id === "규제");
+  const u = [
+    { kind: "조문", no: "제1조", title: "목적", text: "이 지침은 규제입증위원회의 운영에 필요한 사항을 정한다." },
+    { kind: "조문", no: "제3조", title: "기능", text: "위원회는 규제입증 요청을 심의한다." },
+    { kind: "별표", no: "[별표 1]", title: "", text: "규제입증위원회 운영지침" }, // 이름만
+  ];
+  assert.deepEqual(topicHits(u, "규제혁신", [g]), { count: 2, label: "'규제혁신'·분야 검색어 조문 2개" });
+  assert.deepEqual(topicHits(u, "규제혁신", []), { count: 0, label: "'규제혁신' 조문 0개" }); // 측정 안 된 분야는 주제어만
 });
 
 test("제목 규정 보유 현황: 강한 낱말 제목의 현행 규정이 있는 기관만 센다(옛 버전·약한 낱말·다른 유형 제외)", () => {

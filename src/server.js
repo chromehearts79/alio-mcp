@@ -6,7 +6,7 @@ import { z } from "zod";
 import { readFileSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { listOrgs, searchOrgs, getRuleFiles, fetchRuleDocument, settings, mapLimit } from "./alio-client.js";
-import { loadRuleText, matchArticles, pickArticles, excerpt } from "./rule-text.js";
+import { loadRuleText, matchArticles, substantiveMatches, pickArticles, excerpt } from "./rule-text.js";
 import {
   GUIDELINE_TITLE,
   NAME_CHANGES,
@@ -383,6 +383,7 @@ export function createServer() {
 
       const toRead = rules.slice(0, Math.min(maxRules || SCOPE_MAX, SCOPE_MAX));
       const readFailed = [];
+      const nameOnlyRules = [];
       let articleHits = 0;
       let fresh = 0;
       let done = 0;
@@ -396,8 +397,11 @@ export function createServer() {
               fresh++;
               await sleep(settings.delayMs);
             }
-            const found = matchArticles(doc.units, query);
-            if (!found.length) return null;
+            const { kept: found, nameOnly } = substantiveMatches(doc.units, query);
+            if (!found.length) {
+              if (nameOnly) nameOnlyRules.push(`${r.org} ${r.title}`);
+              return null;
+            }
             articleHits += found.length;
             return (
               `\n■ ${r.org} | ${r.title} | 시행 ${r.enfDate} | apbaId=${r.apbaId} idx=${r.idx}` +
@@ -429,6 +433,9 @@ export function createServer() {
         `${coverageNote(cat)}\n` +
         `→ ${blocks.length}개 규정, ${articleHits}개 조문 일치${unread.length ? " (지금까지 읽은 범위 기준)" : ""}\n` +
         (oldSkipped ? `※ 같은 기관·같은 이름의 옛 버전 추정 ${oldSkipped}건은 제외 (includeOld=true 로 포함 가능)\n` : "") +
+        (nameOnlyRules.length
+          ? `※ 별표·부칙에 검색어가 규정 이름으로만 나온 규정 ${nameOnlyRules.length}건은 뺐습니다(예: 내규 목록의 「○○위원회 운영지침」): ${nameOnlyRules.slice(0, 6).join(" / ")}${nameOnlyRules.length > 6 ? " 등" : ""}\n`
+          : "") +
         (rules.length > toRead.length ? `⚠️ 범위 중 ${rules.length - toRead.length}건은 읽지 않음 (maxRules=${toRead.length}).\n` : "") +
         failList("본문 읽기 실패 규정", readFailed) +
         (unread.length
@@ -495,7 +502,7 @@ export function createServer() {
         (c, i) =>
           `\n■ ${i + 1}. ${c.rule.org} | ${c.rule.title} | 시행 ${c.rule.enfDate} | apbaId=${c.rule.apbaId} idx=${c.rule.idx} cat=${c.rule.category}\n` +
           `   유사도 ${c.score.toFixed(2)} — ${c.title.why}` +
-          (r.base ? ` · 같은 주제 조문 ${c.body.shared.length}/${r.baseSignature.length}${c.body.shared.length ? `: ${c.body.shared.slice(0, 6).join(", ")}` : ""}` : ` · ${c.body.shared.join(", ") || "본문에 주제어 없음"}`)
+          (r.base ? ` · 같은 주제 조문 ${c.body.shared.length}/${r.baseSignature.length}${c.body.shared.length ? `: ${c.body.shared.slice(0, 6).join(", ")}` : ""}` : ` · ${c.body.shared.join(", ") || (r.groups.some((g) => g.body?.anchors?.length) ? "본문에 주제어·분야 검색어 없음" : "본문에 주제어 없음")}`)
       );
       const sameWords = r.titleOnly.filter((c) => c.title.score >= 0.9);
       // 제목 후보 밖: 다른 규정 안에 들어 있는 그 분야 조항

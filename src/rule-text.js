@@ -219,6 +219,24 @@ export function matchArticles(units, query) {
   });
 }
 
+// 여러 규정을 훑을 때의 일치: 별표·부칙·머리에서 검색어가 규정 이름으로만 나오면 뺀다.
+// 예) 별표 '내규 목록'의 「규제입증위원회 운영지침」 — 그 규정에 규제입증 조항이 있다는 뜻이 아니다.
+// 규정 이름 판정: 공백을 없앤 글에서 검색어 바로 뒤 한글 12자 안에 규정 종류 꼬리말이 붙는다.
+// 조문·구간(조문 구조 없는 안내서의 본문)은 그대로 둔다 — "규제심사 기준에 따라" 같은 문장까지 빼지 않도록.
+const RULE_NAME_TAIL = /^[가-힣·ㆍ]{0,12}?(규정|규칙|지침|세칙|요령|기준|내규|편람)/;
+const NAME_ONLY_KINDS = new Set(["별표", "부칙", "머리"]);
+function onlyRuleNames(u, query) {
+  const t = norm(`${u.title} ${u.text}`);
+  for (const a of queryGroups(query).flat())
+    for (let i = t.indexOf(a); i !== -1; i = t.indexOf(a, i + 1)) if (!RULE_NAME_TAIL.test(t.slice(i + a.length))) return false;
+  return true;
+}
+export function substantiveMatches(units, query) {
+  const all = matchArticles(units, query);
+  const kept = all.filter((u) => !NAME_ONLY_KINDS.has(u.kind) || !onlyRuleNames(u, query));
+  return { kept, nameOnly: all.length - kept.length };
+}
+
 // "제10조의2", "10조의 2", "10", "부칙", "별표 3" 형태로 조문을 고른다.
 export function pickArticles(units, refs) {
   const picked = [];
