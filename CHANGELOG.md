@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-30
+
 ### Added
 - 비슷한 규정 찾기(`alio_find_related`): 자사 규정(또는 주제어)과 같은 성격의 타 기관 규정을 찾는다. 기관마다 다른 이름(경영혁신규정·혁신경영 실행지침·변화혁신위원회규정 등)을 내규 분야 사전(27개 분야)으로 모으고, 조문 구성(같은 주제의 조항이 있는지)을 비교해 순위와 근거 조문을 보여 준다. 경영혁신 정답지 15건 중 14건이 상위 15위에 들고 혁신도시·기술혁신 같은 잡음은 없다.
 - 전체 규정 목록: 355곳 공시 규정 3만 6천여 건의 제목·분류·시행일을 기관별로 나눠 받아 두고(7일마다 갱신), 서버가 켜질 때 오래된 기관을 뒤에서 갱신한다. 기관 유형·부처로 좁히면 그 기관 목록만 받는다.
@@ -47,6 +49,7 @@
 - 한글(HWPX) 보고서 저장(`alio_write_hwpx`): 함초롬바탕(※·별첨 함초롬돋움), 본문 15pt·표 12pt, 한글 어절·영어 단어 줄 나눔, 양쪽 정렬, 신구조문 대비표(열 너비 37:37:26, 바뀐 부분 밑줄).
 - Claude 데스크톱 확장(.mcpb) 배포. 저장·캐시 위치는 OS 표준 폴더(`ALIO_OUTPUT_DIR`·`ALIO_CACHE_DIR`로 변경).
 
-[Unreleased]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/chromehearts79/alio-mcp/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/chromehearts79/alio-mcp/releases/tag/v0.5.0
