@@ -6,7 +6,7 @@ import { loadCatalog } from "./catalog.js";
 import { loadRuleText, matchArticles } from "./rule-text.js";
 import { mapLimit, settings, listOrgs, searchRules, AlioError } from "./alio-client.js";
 import { isCancelled } from "./context.js";
-import { classifyTitle, titleScore, coreTitle, normTitle } from "./thesaurus.js";
+import { classifyTitle, titleScore, coreTitle, normTitle, hostFamilies, anchorQuery } from "./thesaurus.js";
 
 // 조문 제목 정규화: 낱말 끝 조사를 떼고(혁신계획의 수립 → 혁신계획 수립) 붙여 쓴다
 const normArticle = (t) =>
@@ -52,6 +52,29 @@ export function overlap(base, cand, threshold = 0.5) {
   if (!base.length) return { score: 0, shared: [] };
   const shared = base.filter((b) => cand.some((c) => dice(b.grams, c.grams) >= threshold)).map((b) => b.title);
   return { score: shared.length / base.length, shared };
+}
+
+// 분야별 제목 규정 보유 현황: 그 분야 강한 낱말 제목의 현행 규정이 있는 기관 수와 없는 기관 이름.
+// 없는 기관은 그 분야 조항을 다른 규정 안에 두었을 수 있다(보완 검색이 필요한지 판단 근거).
+export function fieldCoverage(rules, group, filter = {}) {
+  const ok = (r) => !r.superseded && (!filter.orgType || (r.type || "").includes(filter.orgType)) && (!filter.dept || (r.dept || "").includes(filter.dept));
+  const orgs = new Map();
+  for (const r of rules) if (ok(r)) orgs.set(r.apbaId, r.org);
+  const has = coveredOrgs(rules.filter(ok), group);
+  return { group, orgs: has.size, total: orgs.size, lacking: [...orgs].filter(([id]) => !has.has(id)).map(([, name]) => name) };
+}
+
+// 그 분야 제목 규정(강한 낱말, 현행)이 있는 기관 ID
+export function coveredOrgs(rules, group) {
+  const has = new Set();
+  for (const r of rules) if (!r.superseded && classifyTitle(r.title).some((m) => m.group === group && m.level === "strong")) has.add(r.apbaId);
+  return has;
+}
+
+// 분야의 담는 규정(보완 검색 범위) — uncoveredOnly 면 그 분야 제목 규정이 없는 기관 것만
+export function hostRules(rules, group) {
+  const skip = group.body?.uncoveredOnly ? coveredOrgs(rules, group) : null;
+  return rules.filter((r) => !(skip && skip.has(r.apbaId)) && hostFamilies(group, r.title).length);
 }
 
 // maxCheck: 본문까지 비교할 후보 수(제목 점수 순). 넓은 분야(복무 등)는 후보가 천 건을 넘어 상위만 본다.
@@ -135,6 +158,22 @@ export async function findRelated({ rule, topic, filter = {}, limit = 20, maxChe
     { deadline }
   );
 
+  const coverage = groups.map((g) => fieldCoverage(cat.rules, g, filter));
+
+  // 제목에는 분야 낱말이 없지만 그 분야 조항을 담고 있을 만한 규정(분야 사전의 담는 규정) — 본문 보완 검색 안내용 건수
+  const hostScopes = groups
+    .filter((g) => g.body?.hosts?.length)
+    .map((g) => {
+      const byFamily = {};
+      let total = 0;
+      for (const r of hostRules(cat.rules, g)) {
+        if (!inScope(r)) continue;
+        total++;
+        for (const f of hostFamilies(g, r.title)) byFamily[f] = (byFamily[f] || 0) + 1;
+      }
+      return { group: g, total, byFamily, query: anchorQuery(g) };
+    });
+
   for (const c of cands) c.score = c.body ? 0.5 * c.title.score + 0.5 * c.body.score : 0.5 * c.title.score;
   const checked = cands.filter((c) => c.body).sort((a, b) => b.score - a.score);
   const unchecked = toCheck.filter((c) => !c.body && !failed.some((f) => f.org === c.rule.org && f.title === c.rule.title));
@@ -152,6 +191,8 @@ export async function findRelated({ rule, topic, filter = {}, limit = 20, maxChe
     titleOnly,
     failed,
     newlyRead: read,
+    hostScopes,
+    coverage,
   };
 }
 

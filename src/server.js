@@ -25,9 +25,9 @@ import { markdownToStyledHwpx, HOUSE_STYLE } from "./hwpx.js";
 import { OUTPUT_DIR, DOWNLOAD_DIR } from "./paths.js";
 import { runWithSignal, isCancelled } from "./context.js";
 import { writeNewFile } from "./fsutil.js";
-import { findRelated } from "./related.js";
+import { findRelated, hostRules } from "./related.js";
 import { coverageNote, refreshInBackground, loadCatalog } from "./catalog.js";
-import { GROUPS, classifyTitle, normTitle } from "./thesaurus.js";
+import { GROUPS, classifyTitle, normTitle, hostFamilies, anchorQuery } from "./thesaurus.js";
 
 // 버전은 package.json 하나에서 가져온다(manifest·릴리스 태그도 이 값과 맞춰 검사)
 export const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -140,7 +140,7 @@ const REVIEW_FRAME = `[내규 검토 기본 프레임] 내규 개정·비교 검
 0. 기준 최신성: 모든 alio 도구 결과 맨 위의 '📌 기준 지침' 줄(감시 지침)을 확인한다. '⚠️'가 붙어 있으면 다른 작업보다 먼저 alio_guideline 을 호출해 새 개정에서 달라진 점을 사용자에게 설명한다. 검토 대상 규정의 분야에 맞는 지침을 정한다 — alio_find_related 결과의 '관련 정부 지침'을 쓰거나 alio_guideline(list=true)로 게시판 지침을 보고 고른다(예: 임원 보수 → 임원 보수지침, 복리후생·보수 → 예산운용지침, 인사·조직 → 경영에 관한 지침, 안전 → 안전관리에 관한 지침). 그 지침을 guideline 으로, 검토 대상 규정의 시행일을 since 로 넘겨 규정이 만들어진 뒤 지침에서 달라진 점도 확인한다. 맞는 지침이 게시판에 없으면 그렇다고 밝힌다. 법령정보 MCP(korean-law)가 있으면 인용 법령(공운법 제15조 등)의 현행·시행예정 개정도 확인한다.
 1. 자사 규정: alio_search_rules(orgName) → alio_read_rule 로 전문을 읽고 형식 오류(오기, 조문 번호 누락 경고, 인용 법령·부처명·조문 번호)를 점검한다.
 2. 기준 대조: 자사 규정 조문을 그 분야 현행 지침의 대응 조문(alio_guideline 의 guideline·articles·query)과 대조해 불일치·미반영 사항을 찾는다.
-3. 비교군: alio_find_related 에 자사 규정(apbaId·idx)을 넘겨 같은 성격의 타 기관 현행 규정을 찾는다. 기관마다 규정 이름이 달라 제목 검색만으로는 빠지는 규정이 많다. 같은 유형(orgType)으로 좁힐 수 있다(⚠️옛 버전 추정 제외).
+3. 비교군: alio_find_related 에 자사 규정(apbaId·idx)을 넘겨 같은 성격의 타 기관 현행 규정을 찾는다. 기관마다 규정 이름이 달라 제목 검색만으로는 빠지는 규정이 많다. 같은 유형(orgType)으로 좁힐 수 있다(⚠️옛 버전 추정 제외). 결과 끝에 '제목 후보 밖' 안내가 있으면 alio_search_text(field, hosts=true)로 다른 규정 안에 든 그 분야 조항(예: 제안 규정 속 혁신마일리지)까지 보완 검색한다.
 4. 조문 비교: alio_search_text·alio_read_rule 로 항목별 공백과 수준 차이를 찾는다.
 5. 개정안: '필수(법령·지침 불일치, 오기)'와 '권고(타 기관 사례)'를 나누고 근거(지침 개정일·조문, 기관·규정·조문)를 적는다. 결과물에 기준 지침 개정일과 최신성 확인일을 명시한다. 한글 파일이 필요하면 alio_write_hwpx 로 저장한다.
 결과에 '⏱️ 시간 제한'이 있으면 같은 요청을 다시 실행해 이어서 처리한다. 확인되지 않은 내용은 추측하지 않는다.`;
@@ -318,7 +318,14 @@ export function createServer() {
     {
       titleKeyword: z.string().optional().describe("읽을 규정의 제목 키워드 (예: 복무, 인사, 보수, 윤리). 띄어쓰기 무시"),
       field: z.string().optional().describe("내규 분야 (예: 복무, 보수, 인사, 경영혁신, 감사, 계약, 윤리, 안전) — 분야 사전의 제목 낱말로 범위를 정한다"),
-      query: z.string().describe("본문 검색어. 공백=모두 포함, '|'=둘 중 하나, 띄어쓰기 무시"),
+      hosts: z
+        .boolean()
+        .optional()
+        .describe("field 와 함께: 제목에는 그 분야 낱말이 없지만 그 분야 조항을 담고 있을 만한 규정(예: 경영혁신 → 성과관리·제안제도·ESG 규정)을 범위로 한다. 분야 사전에 측정된 기준이 있는 분야만"),
+      query: z
+        .string()
+        .optional()
+        .describe("본문 검색어. 공백=모두 포함, '|'=둘 중 하나, 띄어쓰기 무시. field 만 주고 비우면 그 분야의 본문 검색어(측정된 분야만)"),
       ...orgFilter,
       category: z.string().optional().describe("분류코드 K1100~K1500"),
       maxRules: z.number().optional().describe("범위 중 앞에서부터 읽을 최대 규정 수(기본: 범위 전체, 최대 2000)"),
@@ -327,27 +334,46 @@ export function createServer() {
         .optional()
         .describe("같은 기관에 같은 이름으로 올라온 옛 버전까지 읽기 (기본 false: 시행일이 가장 늦은 것만)"),
     },
-    async ({ titleKeyword = "", field, query, category, maxRules, includeOld, ...f }, extra) => {
+    async ({ titleKeyword = "", field, hosts, query, category, maxRules, includeOld, ...f }, extra) => {
       const deadline = Date.now() + BUDGET_MS;
       const report = progressReporter(extra);
       const SCOPE_MAX = 2000;
       const group = field ? GROUPS.find((g) => g.name.includes(field) || g.id === field || g.strong.includes(field)) : null;
       if (field && !group)
         return fail(`분야 '${field}'를 사전에서 찾지 못했습니다. 쓸 수 있는 분야: ${GROUPS.map((g) => g.name).join(", ")}. 또는 titleKeyword 로 제목 키워드를 주세요.`);
+      const measured = GROUPS.filter((g) => g.body?.hosts?.length).map((g) => g.name);
+      if (hosts && !group) return fail("hosts 는 field 와 함께 씁니다(예: field='경영혁신', hosts=true).");
+      if (hosts && !group.body?.hosts?.length)
+        return fail(`분야 '${group.name}'는 담는 규정 기준이 아직 측정되지 않았습니다(측정된 분야: ${measured.join(", ") || "없음"}). titleKeyword 로 읽을 규정 제목을 직접 정하세요.`);
+      query = (query || "").trim() || (group ? anchorQuery(group) : "");
+      if (!query)
+        return fail(`본문 검색어(query)를 주세요.${group ? ` 분야 '${group.name}'는 본문 검색어가 아직 측정되지 않았습니다.` : ""}`);
       const orgFilterFn = f.orgName || f.orgType || f.dept ? (o) => filterOrgs([o], f).length > 0 : undefined;
       const cat = await loadCatalog({ deadline: Date.now() + BUDGET_MS * 0.5, orgFilter: orgFilterFn });
       if (!cat.orgCount) return fail(`조건(${describeFilter(f)})에 해당하는 기관이 없습니다.`);
 
       const kw = normTitle(titleKeyword);
+      const hostSet = hosts ? new Set(hostRules(cat.rules, group)) : null;
       const inScope = cat.rules.filter(
         (r) =>
           (!kw || normTitle(r.title).includes(kw)) &&
-          (!group || classifyTitle(r.title).some((m) => m.group === group)) &&
+          (!group || (hosts ? hostSet.has(r) : classifyTitle(r.title).some((m) => m.group === group))) &&
           (!category || r.category === category)
       );
       const rules = includeOld ? inScope : inScope.filter((r) => !r.superseded);
       const oldSkipped = inScope.length - rules.length;
-      const scopeLabel = [titleKeyword && `제목 '${titleKeyword}'`, group && `분야 '${group.name}'`, category && `분류 ${category}`, describeFilter(f)].filter(Boolean).join(", ") || "전체";
+      const scopeLabel =
+        [
+          titleKeyword && `제목 '${titleKeyword}'`,
+          group &&
+            (hosts
+              ? `분야 '${group.name}'를 담을 만한 규정(${group.body.hosts.map((h) => h.name).join(", ")}${group.body.uncoveredOnly ? " — 그 분야 제목 규정이 없는 기관만" : ""})`
+              : `분야 '${group.name}'`),
+          category && `분류 ${category}`,
+          describeFilter(f),
+        ]
+          .filter(Boolean)
+          .join(", ") || "전체";
       if (!kw && !group && !category && cat.orgCount > 1 && rules.length > SCOPE_MAX)
         return fail(`범위(${scopeLabel})가 ${rules.length.toLocaleString()}건이라 너무 넓습니다. titleKeyword·field·category 나 기관 유형·부처로 ${SCOPE_MAX}건 이하가 되게 좁히세요.\n${coverageNote(cat)}`);
       if (rules.length > SCOPE_MAX && !maxRules)
@@ -375,6 +401,7 @@ export function createServer() {
             articleHits += found.length;
             return (
               `\n■ ${r.org} | ${r.title} | 시행 ${r.enfDate} | apbaId=${r.apbaId} idx=${r.idx}` +
+              (hosts ? ` | ${hostFamilies(group, r.title).join("·")}` : "") +
               (r.superseded ? ` | ⚠️옛 버전 추정(최신 idx=${r.latestIdx})` : "") +
               "\n" +
               (doc.warnings || []).map((w) => `  ⚠️ ${w}\n`).join("") +
@@ -471,10 +498,33 @@ export function createServer() {
           (r.base ? ` · 같은 주제 조문 ${c.body.shared.length}/${r.baseSignature.length}${c.body.shared.length ? `: ${c.body.shared.slice(0, 6).join(", ")}` : ""}` : ` · ${c.body.shared.join(", ") || "본문에 주제어 없음"}`)
       );
       const sameWords = r.titleOnly.filter((c) => c.title.score >= 0.9);
+      // 제목 후보 밖: 다른 규정 안에 들어 있는 그 분야 조항
+      const passFilter = [orgType && `orgType='${orgType}'`, dept && `dept='${dept}'`, category && `category='${category}'`].filter(Boolean).join(", ");
+      // 분야마다: 제목 규정 보유 현황 → 담는 규정 기준이 있으면 보완 검색 안내, 없으면 한계를 밝힌다
+      const hostNote = r.groups
+        .map((g) => {
+          const cov = r.coverage.find((c) => c.group === g);
+          const h = r.hostScopes.find((x) => x.group === g);
+          const few = cov.lacking.length <= Math.max(3, Math.round(cov.total * 0.03));
+          const head =
+            `\n\n'${g.name}' 제목 규정이 있는 기관 ${cov.orgs}/${cov.total}곳` +
+            (cov.lacking.length ? (few ? ` — 없는 기관: ${cov.lacking.join(", ")}` : ` — 없는 기관 ${cov.lacking.length}곳`) : "");
+          if (h)
+            return (
+              `${head}\n제목 후보 밖 — 제목에는 '${g.name}' 낱말이 없지만 그 조항을 담고 있을 만한 규정 ${h.total.toLocaleString()}건(${Object.entries(h.byFamily).map(([k, v]) => `${k} ${v}`).join(", ")}${g.body.uncoveredOnly ? " — 제목 규정이 없는 기관 것만" : ""})은 위 결과에 없습니다.\n` +
+              `→ 본문 보완 검색: alio_search_text(field='${g.name}', hosts=true${passFilter ? `, ${passFilter}` : ""}) — 본문 검색어 '${h.query}'(${g.body.measured.split(" ")[0]} 측정)`
+            );
+          if (!cov.lacking.length) return head;
+          if (few)
+            return `${head}\n→ 거의 모든 기관이 제목 규정을 두고 있어 보완 검색이 대부분 필요 없습니다. 없는 기관은 다른 규정 안에 조항을 두었을 수 있으니 alio_search_text(orgName='기관명', query='…')로 확인하세요.`;
+          return `${head}\n※ 제목 규정이 없는 기관은 이 분야 조항을 다른 규정 안에 두었을 수 있어 위 결과에 빠졌을 수 있습니다. 이 분야는 그런 규정을 고르는 기준(담는 규정)이 아직 측정되지 않았으니, 필요하면 alio_search_text 에 titleKeyword·query 를 직접 주세요.`;
+        })
+        .join("");
       const tail =
         (r.titleOnly.length
           ? `\n\n제목만 일치(본문 미확인) ${r.titleOnly.length}건${sameWords.length ? ` — 이 중 기준과 제목 낱말까지 같은 규정 ${sameWords.length}건: ${sameWords.slice(0, 8).map((c) => `${c.rule.org} ${c.rule.title}`).join(" / ")}${sameWords.length > 8 ? " 등" : ""}` : ""}\n→ maxCheck 를 늘리거나 orgType·dept 로 좁혀 다시 실행하세요.`
           : "") +
+        hostNote +
         `\n\n※ 유사도 = 제목 분야 일치(절반) + 기준 조문과 같은 주제 조문 비율(절반). 순위는 참고용이니 채택 전에 alio_read_rule 로 조문 전문을 확인하세요.`;
       return text(joinCapped(head, blocks, "규정") + tail);
     }

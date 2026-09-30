@@ -23,6 +23,7 @@ npm test            # 오프라인 테스트(네트워크 없이, 수 초)
 npm run test:live   # ALIO 사이트 구조 점검
 npm run bench       # 실제 내규 106건 조문 분할 회귀 벤치(약 1분, 원문은 bench/.cache 에 보관)
 npm run bench:related  # 비슷한 규정 찾기 품질(경영혁신 정답지·유연근무, 처음엔 목록 받느라 수 분)
+npm run bench:anchors -- 혁신   # 분야별 본문 보완 기준 측정(검색어 재현율·배경 비율·담는 규정 일치율, 처음엔 본문 받느라 수십 분)
 npm run check       # 출시 전 검사(버전·CHANGELOG·패키지 파일·manifest)
 npm run bundle      # dist/alio-mcp-<버전>.mcpb
 npm run smoke       # 번들을 풀어 빈 홈 폴더에서 실행(--live 로 ALIO 실호출까지)
@@ -33,6 +34,7 @@ node test/e2e-smoke.mjs   # 소스 그대로 모든 도구 실호출
 
 - **분할 규칙(rule-text.js)이나 kordoc 을 바꾸면 `npm run bench` 를 돌린다.** 달라진 규정은 원문을 보고 개선인지 확인한 뒤에만 `node bench/run.mjs --accept` 로 기준을 바꾼다. 결과가 바뀌면 `CACHE_VERSION` 을 올린다. (kordoc 4.16 에서 PDF 목차 형식이 바뀌어 조문 79개가 17개로 줄던 퇴행을 이 벤치가 잡았다.)
 - **분야 사전(thesaurus.js)이나 찾기 점수를 바꾸면 `npm run bench:related` 를 돌린다.** 낱말은 실제 공시 규정 제목 빈도를 보고 고르고, 오분류는 제외 낱말이나 약한 낱말로 돌린다(예: '혁신위원회'는 환자경험혁신위원회에도 쓰여 약한 낱말).
+- **분야의 `body`(담는 규정·본문 검색어)는 `npm run bench:anchors -- <분야>` 로 잰 값만 넣고 `measured` 에 근거를 적는다.** 자사 규정에만 쓰는 표현(예: 혁신포털)이나 무작위 규정에도 흔한 말(예: 경영혁신 4%)은 검색어로 쓰지 않고, 일치율이 무작위 수준인 담는 규정 묶음은 뺀다(예: ESG 0/134). 테스트가 측정 근거 없는 값을 막는다.
 - **도구를 더하거나 이름을 바꾸면** manifest.json `tools` 와 README 도구 표도 같이 고친다(테스트가 셋을 대조한다).
 - **버전은 package.json 한 곳.** `npm version patch|minor` 가 manifest·CHANGELOG 를 맞추고 커밋·태그를 만든다. `git push --follow-tags` 하면 Release 워크플로가 검사 후 번들을 게시한다. 바뀐 점은 먼저 CHANGELOG `[Unreleased]` 에 적는다.
 - **결과를 추측하게 두지 않는다.** 실패·시간 초과·조회 실패 기관은 숨기지 말고 결과에 적고, "결과를 추측하지 마세요" 안내를 유지한다.

@@ -128,6 +128,22 @@ test("본문 검색 범위: 없는 분야는 쓸 수 있는 분야를 알려 주
   assert.match(empty, /해당하는 규정이 없어 본문을 읽지 않았습니다.*추측하지 마세요/);
 });
 
+test("본문 보완 검색: 측정된 분야는 담는 규정·본문 검색어를 쓰고, 측정 안 된 분야는 그렇다고 알린다", async () => {
+  route = async (u) => {
+    if (u.endsWith("/item/itemOrganListSusi.json")) return json(orgsJson);
+    if (u.includes("/etc/")) return offline();
+    return json({ data: { result: [], page: { totalPage: 0, totalCount: 0 } } });
+  };
+  const hosts = bodyOf(await call("alio_search_text", { field: "경영혁신", hosts: true, orgName: "인천국제공항공사" }));
+  assert.match(hosts, /분야 '경영혁신'를 담을 만한 규정\(성과관리·경영평가, 제안제도/);
+  const unmeasured = await call("alio_search_text", { field: "복무", hosts: true, orgName: "인천국제공항공사" });
+  assert.equal(unmeasured.isError, true);
+  assert.match(bodyOf(unmeasured), /아직 측정되지 않았습니다\(측정된 분야: .*경영혁신/);
+  const noQuery = await call("alio_search_text", { field: "복무", orgName: "인천국제공항공사" });
+  assert.equal(noQuery.isError, true);
+  assert.match(bodyOf(noQuery), /본문 검색어\(query\)를 주세요/);
+});
+
 test("요청을 취소하면 서버도 조회를 멈춘다", async () => {
   // 기관 목록은 바로, 기관별 검색은 건당 100ms 걸리는 사이트
   route = async (u) => {

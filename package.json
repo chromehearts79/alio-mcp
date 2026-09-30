@@ -41,7 +41,8 @@
     "check": "node scripts/check-release.mjs",
     "smoke": "node scripts/smoke-bundle.mjs",
     "version": "node scripts/sync-version.mjs",
-    "bench:related": "node bench/related.mjs"
+    "bench:related": "node bench/related.mjs",
+    "bench:anchors": "node bench/anchors.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

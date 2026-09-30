@@ -68,7 +68,7 @@
     },
     {
       "name": "alio_search_text",
-      "description": "여러 기관 규정 본문(조문) 검색 — 제목·내규 분야·분류·기관 유형 범위, 이어서 끝까지"
+      "description": "여러 기관 규정 본문(조문) 검색 — 제목·내규 분야·분류·기관 유형 범위, 분야 조항을 담은 다른 규정까지(hosts), 이어서 끝까지"
     },
     {
       "name": "alio_find_related",
