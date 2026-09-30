@@ -613,7 +613,7 @@ export function createServer() {
     "review_rule",
     {
       title: "내규 검토 (최신 지침 기준)",
-      description: "자사 규정을 현행 「공공기관의 혁신에 관한 지침」과 타 기관 규정에 비추어 검토하는 기본 절차",
+      description: "자사 규정을 분야별 현행 정부 지침과 같은 성격의 타 기관 규정에 비추어 검토하는 기본 절차",
       argsSchema: {
         org: z.string().describe("자사 기관명 (예: 한국인터넷진흥원)"),
         rule: z.string().describe("검토할 규정 제목 키워드 (예: 혁신, 복무)"),
