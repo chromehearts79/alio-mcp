@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-30
+
 ### Fixed
 - 주제어로 비슷한 규정을 찾을 때 본문에서 주제어 자체만 세서, 같은 분야라도 다른 말을 쓰는 규정이 뒤로 밀리던 것. 이제 그 분야의 측정된 본문 검색어도 함께 센다. 예: 주제어 '규제혁신'으로 찾을 때 '규제입증'이라는 말만 쓰는 규제입증위원회 규정 16건 이상이 "본문에 주제어 없음"(0.40)으로 밀려 있었는데, 이제 3~11개 조문이 잡혀 0.90이다.
 - 여러 규정 본문 검색(`alio_search_text`)에서, 별표·부칙에 검색어가 규정 이름으로만 나온 경우를 일치로 보던 것. 예를 들어 내규 목록의 「규제입증위원회 운영지침」이 여기에 해당한다. 이런 규정은 결과에서 빼고, 뺀 규정은 따로 알린다. 규제혁신 보완 검색 39건 중 11건이 이런 경우였고, 모두 목록·부칙의 이름 나열임을 확인했다. 조문과 안내서 본문은 거르지 않고, 규정 하나 읽기(`alio_read_rule`)는 모든 일치를 그대로 보여 준다.
@@ -73,7 +75,8 @@
 - 한글(HWPX) 보고서 저장(`alio_write_hwpx`): 함초롬바탕(※·별첨 함초롬돋움), 본문 15pt·표 12pt, 한글 어절·영어 단어 줄 나눔, 양쪽 정렬, 신구조문 대비표(열 너비 37:37:26, 바뀐 부분 밑줄).
 - Claude 데스크톱 확장(.mcpb) 배포. 저장·캐시 위치는 OS 표준 폴더(`ALIO_OUTPUT_DIR`·`ALIO_CACHE_DIR`로 변경).
 
-[Unreleased]: https://github.com/chromehearts79/alio-mcp/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/chromehearts79/alio-mcp/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/chromehearts79/alio-mcp/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/chromehearts79/alio-mcp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/chromehearts79/alio-mcp/compare/v0.5.0...v0.5.1
